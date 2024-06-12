@@ -112,7 +112,7 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
                 _holiday={
                     "date": holiday["date"],
                     "reasonId": 1,
-                    "correlationId": str(_id).strip()                    
+                    "correlationId": holiday["id"]                       
                 }
                 _holidays.append(_holiday)
 
