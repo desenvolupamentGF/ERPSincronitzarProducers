@@ -123,6 +123,7 @@ def synchronize_clients(now, myCursorEmmegi):
                     helper = replaceCharacters(str(data["org_name"]).strip(), ['.',',','-',' '], True)    
                     glam_id, old_data_hash = get_value_from_database_helper(myCursorEmmegi, 'Organizations ERP GF', 'Sage', helper)
                     if glam_id is None: 
+                        logging.warning('Organization not found on the helper column of ERPIntegration: ' + str(helper))
                         continue # if not found, this contact is not used. Next!
 
                     _phone = "No informat"
