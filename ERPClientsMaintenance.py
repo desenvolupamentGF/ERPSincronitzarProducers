@@ -120,7 +120,7 @@ def synchronize_clients(now, myCursorEmmegi):
                 for data in response["data"]:
 
                     # We need to get the GUID of the organization using the name of the organization. Hard but we try via removing special characters and comparing uppercase values.
-                    helper = replaceCharacters(str(data["org_name"]).strip(), ['.',',','-',' '], True)    
+                    helper = replaceCharacters(str(data["org_name"]).strip(), [".",",","-","'"," "], True)    
                     glam_id, old_data_hash = get_value_from_database_helper(myCursorEmmegi, 'Organizations ERP GF', 'Sage', helper)
                     if glam_id is None: 
                         logging.warning('Organization not found on the helper column of ERPIntegration: ' + str(helper))
