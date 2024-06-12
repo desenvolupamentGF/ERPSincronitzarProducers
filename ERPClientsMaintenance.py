@@ -24,7 +24,7 @@ import requests
 # extra imports
 import sys
 import datetime
-from utils import send_email, connectMySQL, disconnectMySQL
+from utils import send_email, connectMySQL, disconnectMySQL, replaceCharacters
 import os
 
 # End points URLs
@@ -54,6 +54,18 @@ CONN_TIMEOUT = 50
 
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM gfintranet.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
+    myresult = mycursor.fetchall()
+
+    erpGFId = None
+    hash = None
+    for x in myresult:
+        erpGFId = str(x[0])
+        hash = str(x[1])
+
+    return erpGFId, hash
+
+def get_value_from_database_helper(mycursor, endPoint, origin, helper):
+    mycursor.execute("SELECT erpGFId, hash FROM gfintranet.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND deploy = " + str(ENVIRONMENT) + " AND helper = '" + str(helper) + "'")
     myresult = mycursor.fetchall()
 
     erpGFId = None
@@ -105,6 +117,12 @@ def synchronize_clients(now, myCursorEmmegi):
             else:                
                 for data in response["data"]:
 
+                    # We need to get the GUID of the organization using the name of the organization. Hard but we try via removing special characters and comparing uppercase values.
+                    helper = replaceCharacters(str(data["org_name"]).strip(), ['.',',','-',' '], True)    
+                    glam_id, old_data_hash = get_value_from_database_helper(myCursorEmmegi, 'Organizations ERP GF', 'Sage', helper)
+                    if glam_id is None: 
+                        continue # if not found, this contact is not used. Next!
+
                     _phone = "No informat"
                     for phone in data["phone"]:
                         if phone["value"] != "":
@@ -124,7 +142,7 @@ def synchronize_clients(now, myCursorEmmegi):
                     data={
                         "queueType": "CLIENTS_CONTACTES",
                         "name": str(data["name"]).strip(),
-                        "nameOrganization": str(data["org_name"]).strip(),
+                        "organizationId": glam_id,
                         "phone": str(_phone).strip(),
                         "email": str(_email).strip(),
                         "languageId": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
