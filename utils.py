@@ -59,3 +59,15 @@ def disconnectSQLServer(db):
         db.close()
     except Exception as e:              
         None
+
+def replaceCharacters(text, list, uppercase):
+    if uppercase:
+        txt = text.upper()
+    else:    
+        txt = text
+
+    # remove list of special characters
+    for char in list:
+        txt = txt.replace(char, '')
+
+    return txt
