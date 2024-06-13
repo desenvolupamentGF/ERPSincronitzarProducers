@@ -244,7 +244,7 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                 # Get Glam Payment Method id.
                 glam_payment_method_id, nothing_to_do = get_value_from_database(myCursorEmmegi, correlation_id=codigoCondicionesP, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
                 if glam_payment_method_id is None:
-                    logging.error('Payment method not found! Check why!')
+                    logging.error('Payment method not found! Check why! (' + str(_CIF) + '/' + str(codigoCondicionesP) + ")")
                     continue # skip to next organization (should not happen)
                 else:
                     dataProveedor["paymentMethodId"] = glam_payment_method_id
