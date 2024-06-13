@@ -148,12 +148,14 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                              "       MAX(nameP) as nameP, MAX(addressP) as addressP, MAX(postalCodeP) as postalCodeP, MAX(cityP) as cityP, MAX(regionP) as regionP, MAX(phoneP) as phoneP, MAX(fechaBajaP) as fechaBajaP, " \
                              "       MAX(nameC) as nameC, MAX(addressC) as addressC, MAX(postalCodeC) as postalCodeC, MAX(cityC) as cityC, MAX(regionC) as regionC, MAX(phoneC) as phoneC, MAX(fechaBajaC) as fechaBajaC, " \
                              "       MAX(codigoCondicionesP) as codigoCondicionesP, MAX(descuentoP) as descuentoP, MAX(prontoPagoP) as prontoPagoP, MAX(financiacionP) as financiacionP, " \
-                             "       MAX(codigoCondicionesC) as codigoCondicionesC, MAX(descuentoC) as descuentoC, MAX(prontoPagoC) as prontoPagoC, MAX(financiacionC) as financiacionC FROM (" \
+                             "       MAX(codigoCondicionesC) as codigoCondicionesC, MAX(descuentoC) as descuentoC, MAX(prontoPagoC) as prontoPagoC, MAX(financiacionC) as financiacionC, " \
+                             "       MAX(riesgoMaximoC) as riesgoMaximoC FROM (" \
                              "  SELECT p.nombre as nomProveedor, null as nomCliente, p.cifdni as CIF, p.codigoContable as accountProveedor, null as accountCliente, n.nacionIso as codNacion, " \
                              "         p.nombre as nameP, p.domicilio as addressP, p.codigoPostal as postalCodeP, p.municipio as cityP, p.provincia as regionP, p.telefono as phoneP, p.fechabajalc as fechaBajaP, " \
                              "         null as nameC, null as addressC, null as postalCodeC, null as cityC, null as regionC, null as phoneC, null as fechaBajaC, " \
                              "         p.[codigoCondiciones] as codigoCondicionesP, p.[%descuento] as descuentoP, p.[%prontoPago] as prontoPagoP, p.[%financiacion] as financiacionP, " \
-                             "         null as codigoCondicionesC, null as descuentoC, null as prontoPagoC, null as financiacionC " \
+                             "         null as codigoCondicionesC, null as descuentoC, null as prontoPagoC, null as financiacionC, " \
+                             "         null as riesgoMaximoC " \
                              "  FROM [GARCIAFAURA].dbo.Proveedores p, [GARCIAFAURA].dbo.Naciones n " \
                              "  WHERE p.codigoNacion = n.codigoNacion " \
                              "  AND p.codigoEmpresa = 1 " \
@@ -166,7 +168,8 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                              "         null as nameP, null as addressP, null as postalCodeP, null as cityP, null as regionP, null as phoneP, null as fechaBajaP, " \
                              "         c.nombre as nameC, c.domicilio as addressC, c.codigoPostal as postalCodeC, c.municipio as cityC, c.provincia as regionC, c.telefono as phoneC, c.fechabajalc as fechaBajaC, " \
                              "         null as codigoCondicionesP, null as descuentoP, null as prontoPagoP, null as financiacionP, " \
-                             "         c.[codigoCondiciones] as codigoCondicionesC, c.[%descuento] as descuentoC, c.[%prontoPago] as prontoPagoC, c.[%financiacion] as financiacionC " \
+                             "         c.[codigoCondiciones] as codigoCondicionesC, c.[%descuento] as descuentoC, c.[%prontoPago] as prontoPagoC, c.[%financiacion] as financiacionC, " \
+                             "         c.riesgoMaximo as riesgoMaximoC "
                              "  FROM [GARCIAFAURA].dbo.Clientes c, [GARCIAFAURA].dbo.Naciones n " \
                              "  WHERE c.codigoNacion = n.codigoNacion " \
                              "  AND c.codigoEmpresa = 1 " \
@@ -186,7 +189,8 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
             _nameP, _addressP, _postalCodeP, _cityP, _regionP, _phoneP, _fechaBajaP, \
             _nameC, _addressC, _postalCodeC, _cityC, _regionC, _phoneC, _fechaBajaC, \
             _codigoCondicionesP, _descuentoP, _prontoPagoP, _financiacionP, \
-            _codigoCondicionesC, _descuentoC, _prontoPagoC, _financiacionC in myCursorSage.fetchall():
+            _codigoCondicionesC, _descuentoC, _prontoPagoC, _financiacionC, \
+            _riesgoMaximoC in myCursorSage.fetchall():
 
             if _nomCliente is not None: # If organization is both proveedor and client, we pick one (client)
                 nomOrganization = str(_nomCliente).strip()
@@ -270,6 +274,8 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                     "paymentInAdvanceDiscount": str(round(_prontoPagoC, 2)),
                     "finantialCost": str(round(_financiacionC, 2)),
                     "shippingDays": 0,
+                    "amount": str(round(_riesgoMaximoC, 2)),
+                    "insuranceCompany": "CESCE", # Sempre és aquesta pels clients segons Loli Requena
                     "correlationId": str(_CIF).strip()
                 }             
                 # Get Glam Payment Method id.

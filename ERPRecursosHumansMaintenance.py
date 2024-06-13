@@ -29,8 +29,12 @@ import os
 
 # End points URLs
 URL_CALENDARS = "/calendars"
+URL_DEPARTMENTS = "/departments"
+URL_TIMETABLES = "/timetable"
 
 URL_CALENDARS_SESAME = "/schedule/v1/holiday-calendar"
+URL_DEPARTMENTS_SESAME = "/core/v3/departments"
+URL_TIMETABLES_SESAME = "/schedule/v1/schedule-templates"
 URL_API_SESAME = os.environ['URL_API_SESAME']
 TOKEN_API_SESAME = os.environ['TOKEN_API_SESAME']
 
@@ -90,56 +94,67 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
-        headers = {
-            "Authorization": "Bearer " + TOKEN_API_SESAME,
-            "Content-Type": "application/json"
-        }
-
-        get_req = requests.get(URL_API_SESAME + URL_CALENDARS_SESAME, headers=headers,
-                               verify=False, timeout=CONN_TIMEOUT)
-        response = get_req.json()
-
         i = 0
         j = 0
-        for data in response["data"]:
+        endProcess = False
+        currentPage = 1
+        while not endProcess:
 
-            _id = data["id"]
-            _name = data["name"]
-            _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
-                    
-            _holidays = []
-            for holiday in data["daysOff"]:
-                _holiday={
-                    "date": holiday["date"],
-                    "reasonId": 1,
-                    "correlationId": holiday["id"]                       
-                }
-                _holidays.append(_holiday)
-
-            data={
-                "queueType": "RRHH_CALENDARISLABORALS",
-                "name": str(_name).strip(),
-                "companyId": str(_companyId).strip(),
-                "holidays": _holidays,
-                "correlationId": str(_id).strip()                    
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Content-Type": "application/json"
             }
 
-            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_CALENDARS, "Recursos Humans ERP GF", "Sesame")
+            get_req = requests.get(URL_API_SESAME + URL_CALENDARS_SESAME, headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
 
-            if glam_id is None or str(old_data_hash) != str(data_hash):
+            for data in response["data"]:
 
-                logging.info('      Processing calendari laboral: ' + data["name"] + ' ...') 
+                _id = data["id"]
+                _name = data["name"]
+                _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
+                    
+                _holidays = []
+                for holiday in data["daysOff"]:
+                    _holiday={
+                        "date": holiday["date"],
+                        "reasonId": 1,
+                        "correlationId": holiday["id"]                       
+                    }
+                    _holidays.append(_holiday)
 
-                # Sending message to queue
-                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+                data={
+                    "queueType": "RRHH_CALENDARISLABORALS",
+                    "name": str(_name).strip(),
+                    "companyId": str(_companyId).strip(),
+                    "holidays": _holidays,
+                    "correlationId": str(_id).strip()                    
+                }
 
-                j += 1
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_CALENDARS, "Recursos Humans ERP GF", "Sesame")
 
-            i += 1
-            if i % 1000 == 0:
-                logging.info('      ' + str(i) + ' synchronized calendars...')    
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing calendari laboral: ' + data["name"] + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized calendars...')    
+        
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(currentPage):
+                endProcess = True
+            else:
+                currentPage = currentPage + 1
+
         logging.info('      Total synchronized calendars: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
         # Closing queue
@@ -147,6 +162,142 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
 
     except Exception as e:
         logging.error('   Unexpected error when processing calendars from original ERP (Sesame): ' + str(e))
+        send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        sys.exit(1)
+
+def synchronize_departments(now, myCursorEmmegi):
+    logging.info('   Processing departments from origin ERP (Sesame)')
+
+    try:
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        endProcess = False
+        currentPage = 1        
+        while not endProcess:
+
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Content-Type": "application/json"
+            }
+
+            get_req = requests.get(URL_API_SESAME + URL_DEPARTMENTS_SESAME, headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
+
+            for data in response["data"]:
+
+                _id = data["id"]
+                _name = data["name"]
+                _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
+                    
+                data={
+                    "queueType": "RRHH_DEPARTMENTS",
+                    "name": str(_name).strip(),
+                    "companyId": str(_companyId).strip(),
+                    "correlationId": str(_id).strip()                    
+                }
+
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_DEPARTMENTS, "Recursos Humans ERP GF", "Sesame")
+
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing department: ' + data["name"] + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized departments...')    
+
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(currentPage):
+                endProcess = True
+            else:
+                currentPage = currentPage + 1
+
+        logging.info('      Total synchronized departments: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        logging.error('   Unexpected error when processing departments from original ERP (Sesame): ' + str(e))
+        send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        sys.exit(1)
+
+def synchronize_timetables(now, myCursorEmmegi):
+    logging.info('   Processing timetables from origin ERP (Sesame)')
+
+    try:
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        endProcess = False
+        currentPage = 1        
+        while not endProcess:
+
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Content-Type": "application/json"
+            }
+
+            get_req = requests.get(URL_API_SESAME + URL_TIMETABLES_SESAME, headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
+
+            for data in response["data"]:
+
+                _id = data["id"]
+                _name = data["name"]
+                _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
+                    
+                data={
+                    "queueType": "RRHH_TIMETABLES",
+                    "name": str(_name).strip(),
+                    "companyId": str(_companyId).strip(),
+                    "correlationId": str(_id).strip()                    
+                }
+
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_TIMETABLES, "Recursos Humans ERP GF", "Sesame")
+
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing timetable: ' + data["name"] + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized timetables...')    
+
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(currentPage):
+                endProcess = True
+            else:
+                currentPage = currentPage + 1
+
+        logging.info('      Total synchronized timetables: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        logging.error('   Unexpected error when processing timetables from original ERP (Sesame): ' + str(e))
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
@@ -175,6 +326,8 @@ def main():
         sys.exit(1)
 
     synchronize_calendarisLaborals(now, myCursorEmmegi)    
+    #synchronize_departments(now, myCursorEmmegi)    
+    #synchronize_timetables(now, myCursorEmmegi)    
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
