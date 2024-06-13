@@ -32,6 +32,7 @@ URL_CALENDARS = "/calendars"
 URL_DEPARTMENTS = "/departments"
 URL_TIMETABLES = "/timetable"
 
+# FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_CALENDARS_SESAME = "/schedule/v1/holiday-calendar"
 URL_DEPARTMENTS_SESAME = "/core/v3/departments"
 URL_TIMETABLES_SESAME = "/schedule/v1/schedule-templates"
@@ -97,15 +98,15 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
         i = 0
         j = 0
         endProcess = False
-        currentPage = 1
+        page = 1
         while not endProcess:
 
             headers = {
-                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
                 "Content-Type": "application/json"
             }
 
-            get_req = requests.get(URL_API_SESAME + URL_CALENDARS_SESAME, headers=headers,
+            get_req = requests.get(URL_API_SESAME + URL_CALENDARS_SESAME + "?page=" + str(page), headers=headers,
                                    verify=False, timeout=CONN_TIMEOUT)
             response = get_req.json()
 
@@ -150,10 +151,10 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
                     logging.info('      ' + str(i) + ' synchronized calendars...')    
         
             meta = response["meta"]
-            if str(meta["lastPage"]) == str(currentPage):
+            if str(meta["lastPage"]) == str(page):
                 endProcess = True
             else:
-                currentPage = currentPage + 1
+                page = page + 1
 
         logging.info('      Total synchronized calendars: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
@@ -175,15 +176,15 @@ def synchronize_departments(now, myCursorEmmegi):
         i = 0
         j = 0
         endProcess = False
-        currentPage = 1        
+        page = 1        
         while not endProcess:
 
             headers = {
-                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
                 "Content-Type": "application/json"
             }
 
-            get_req = requests.get(URL_API_SESAME + URL_DEPARTMENTS_SESAME, headers=headers,
+            get_req = requests.get(URL_API_SESAME + URL_DEPARTMENTS_SESAME + "?page=" + str(page), headers=headers,
                                    verify=False, timeout=CONN_TIMEOUT)
             response = get_req.json()
 
@@ -218,10 +219,10 @@ def synchronize_departments(now, myCursorEmmegi):
                     logging.info('      ' + str(i) + ' synchronized departments...')    
 
             meta = response["meta"]
-            if str(meta["lastPage"]) == str(currentPage):
+            if str(meta["lastPage"]) == str(page):
                 endProcess = True
             else:
-                currentPage = currentPage + 1
+                page = page + 1
 
         logging.info('      Total synchronized departments: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
@@ -243,15 +244,15 @@ def synchronize_timetables(now, myCursorEmmegi):
         i = 0
         j = 0
         endProcess = False
-        currentPage = 1        
+        page = 1        
         while not endProcess:
 
             headers = {
-                "Authorization": "Bearer " + TOKEN_API_SESAME, # + "&currentPage=" + str(currentPage),
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
                 "Content-Type": "application/json"
             }
 
-            get_req = requests.get(URL_API_SESAME + URL_TIMETABLES_SESAME, headers=headers,
+            get_req = requests.get(URL_API_SESAME + URL_TIMETABLES_SESAME + "?page=" + str(page), headers=headers,
                                    verify=False, timeout=CONN_TIMEOUT)
             response = get_req.json()
 
@@ -286,10 +287,10 @@ def synchronize_timetables(now, myCursorEmmegi):
                     logging.info('      ' + str(i) + ' synchronized timetables...')    
 
             meta = response["meta"]
-            if str(meta["lastPage"]) == str(currentPage):
+            if str(meta["lastPage"]) == str(page):
                 endProcess = True
             else:
-                currentPage = currentPage + 1
+                page = page + 1
 
         logging.info('      Total synchronized timetables: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
@@ -325,8 +326,8 @@ def main():
         disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-    synchronize_calendarisLaborals(now, myCursorEmmegi)    
-    synchronize_departments(now, myCursorEmmegi)    
+    #synchronize_calendarisLaborals(now, myCursorEmmegi)    
+    #synchronize_departments(now, myCursorEmmegi)    
     synchronize_timetables(now, myCursorEmmegi)    
 
     # Send email with execution summary
