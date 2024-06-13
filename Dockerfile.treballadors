@@ -5,7 +5,7 @@ ENV VIRTUAL_ENV $APP_HOME/.venv
 
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-COPY . $APP_HOME/
+COPY ./ERPSincronitzarProducers/ $APP_HOME/
 RUN pip install --upgrade pip
 
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
