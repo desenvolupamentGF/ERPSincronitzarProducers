@@ -326,8 +326,8 @@ def main():
         sys.exit(1)
 
     synchronize_calendarisLaborals(now, myCursorEmmegi)    
-    #synchronize_departments(now, myCursorEmmegi)    
-    #synchronize_timetables(now, myCursorEmmegi)    
+    synchronize_departments(now, myCursorEmmegi)    
+    synchronize_timetables(now, myCursorEmmegi)    
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
