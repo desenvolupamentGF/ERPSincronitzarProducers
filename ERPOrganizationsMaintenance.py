@@ -59,7 +59,7 @@ SQLSERVER_HOST = os.environ['SQLSERVER_HOST']
 SQLSERVER_DATABASE = os.environ['SQLSERVER_DATABASE']
 
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
-    mycursor.execute("SELECT erpGFId, hash FROM gfintranet.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
+    mycursor.execute("SELECT erpGFId, hash FROM sys.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
 
     erpGFId = None
