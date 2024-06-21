@@ -81,7 +81,7 @@ def synchronize_users(dbEmmegi, myCursorEmmegi, now):
     # processing users from origin ERP (Emmegi)
     try:
         # loop over the users
-        myCursorEmmegi.execute("SELECT u_id, u_name, u_lastname, u_email, u_is_active FROM gfi_users WHERE u_email <> '' ORDER BY u_id ") 
+        myCursorEmmegi.execute("SELECT u_id, u_name, u_lastname, u_email, u_is_active FROM gfintranet.gfi_users WHERE u_email <> '' ORDER BY u_id ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
