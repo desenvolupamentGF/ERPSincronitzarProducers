@@ -53,10 +53,10 @@ MYSQL_PASSWORD = os.environ['MYSQL_PASSWORD']
 MYSQL_HOST = os.environ['MYSQL_HOST']
 MYSQL_DATABASE = os.environ['MYSQL_DATABASE']
 
-SQLSERVER_USER = os.environ['SQLSERVER_USER']
-SQLSERVER_PASSWORD = os.environ['SQLSERVER_PASSWORD']
-SQLSERVER_HOST = os.environ['SQLSERVER_HOST']
-SQLSERVER_DATABASE = os.environ['SQLSERVER_DATABASE']
+SAGE_SQLSERVER_USER = os.environ['SAGE_SQLSERVER_USER']
+SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
+SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
+SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
@@ -361,7 +361,7 @@ def main():
     # connecting to Sage database (SQLServer)
     dbSage = None
     try:
-        dbSage = connectSQLServer(SQLSERVER_USER, SQLSERVER_PASSWORD, SQLSERVER_HOST, SQLSERVER_DATABASE)
+        dbSage = connectSQLServer(SAGE_SQLSERVER_USER, SAGE_SQLSERVER_PASSWORD, SAGE_SQLSERVER_HOST, SAGE_SQLSERVER_DATABASE)
         myCursorSage = dbSage.cursor()
     except Exception as e:
         logging.error('   Unexpected error when connecting to SQLServer Sage database: ' + str(e))
