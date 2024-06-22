@@ -88,7 +88,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_calendarisLaborals(now, myCursorEmmegi):
+def synchronize_calendarisLaborals(now, myCursor):
     logging.info('   Processing calendaris laborals from origin ERP (Sesame)')
 
     try:
@@ -135,7 +135,7 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_CALENDARS, "Recursos Humans ERP GF", "Sesame")
+                glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_CALENDARS, "Recursos Humans ERP GF", "Sesame")
 
                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -166,7 +166,7 @@ def synchronize_calendarisLaborals(now, myCursorEmmegi):
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_departments(now, myCursorEmmegi):
+def synchronize_departments(now, myCursor):
     logging.info('   Processing departments from origin ERP (Sesame)')
 
     try:
@@ -203,7 +203,7 @@ def synchronize_departments(now, myCursorEmmegi):
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_DEPARTMENTS, "Recursos Humans ERP GF", "Sesame")
+                glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_DEPARTMENTS, "Recursos Humans ERP GF", "Sesame")
 
                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -234,7 +234,7 @@ def synchronize_departments(now, myCursorEmmegi):
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_timetables(now, myCursorEmmegi):
+def synchronize_timetables(now, myCursor):
     logging.info('   Processing timetables from origin ERP (Sesame)')
 
     try:
@@ -271,7 +271,7 @@ def synchronize_timetables(now, myCursorEmmegi):
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_TIMETABLES, "Recursos Humans ERP GF", "Sesame")
+                glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_TIMETABLES, "Recursos Humans ERP GF", "Sesame")
 
                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -316,19 +316,19 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbEmmegi = None
+    db = None
     try:
-        dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        myCursorEmmegi = dbEmmegi.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        myCursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
 
-    #synchronize_calendarisLaborals(now, myCursorEmmegi)    
-    #synchronize_departments(now, myCursorEmmegi)    
-    synchronize_timetables(now, myCursorEmmegi)    
+    synchronize_calendarisLaborals(now, myCursor)    
+    synchronize_departments(now, myCursor)    
+    synchronize_timetables(now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -337,8 +337,8 @@ def main():
     logging.info('')
 
     # Closing databases
-    dbEmmegi.close()
-    myCursorEmmegi.close()
+    db.close()
+    myCursor.close()
 
     sys.exit(0)
 

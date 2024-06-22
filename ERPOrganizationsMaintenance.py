@@ -87,7 +87,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursorEmmegi):
+def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursor):
     logging.info('   Processing payment methods from origin ERP (Sage)')
 
     # processing payment methods from origin ERP (Sage)
@@ -112,7 +112,7 @@ def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursorEmmegi):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, str(_code).strip(), URL_PAYMENTMETHODS, "Organizations ERP GF", "Sage")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_PAYMENTMETHODS, "Organizations ERP GF", "Sage")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -137,7 +137,7 @@ def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursorEmmegi):
         disconnectMySQL(dbSage)
         sys.exit(1)
 
-def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
+def synchronize_organizations(dbSage, myCursorSage, now, myCursor):
     logging.info('   Processing proveïdors i clients from origin ERP (Sage)')
 
     # processing proveïdors i clients from origin ERP (Sage)
@@ -242,7 +242,7 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                     "correlationId": str(_CIF).strip()
                 }             
                 # Get Glam Payment Method id.
-                glam_payment_method_id, nothing_to_do = get_value_from_database(myCursorEmmegi, correlation_id=codigoCondicionesP, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
+                glam_payment_method_id, nothing_to_do = get_value_from_database(myCursor, correlation_id=codigoCondicionesP, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
                 if glam_payment_method_id is None:
                     logging.error('Payment method not found! Check why! (' + str(_CIF) + '/' + str(codigoCondicionesP) + ")")
                     continue # skip to next organization (should not happen)
@@ -279,7 +279,7 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
                     "correlationId": str(_CIF).strip()
                 }             
                 # Get Glam Payment Method id.
-                glam_payment_method_id, nothing_to_do = get_value_from_database(myCursorEmmegi, correlation_id=codigoCondicionesC, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
+                glam_payment_method_id, nothing_to_do = get_value_from_database(myCursor, correlation_id=codigoCondicionesC, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
                 if glam_payment_method_id is None:
                     logging.error('Payment method not found! Check why!')
                     continue # skip to next organization (should not happen)
@@ -309,7 +309,7 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, str(_CIF).strip(), URL_ORGANIZATIONS, "Organizations ERP GF", "Sage")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_CIF).strip(), URL_ORGANIZATIONS, "Organizations ERP GF", "Sage")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -348,14 +348,14 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbEmmegi = None
+    db = None
     try:
-        dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        myCursorEmmegi = dbEmmegi.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        myCursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
 
     # connecting to Sage database (SQLServer)
@@ -369,8 +369,8 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_paymentMethods(dbSage, myCursorSage, now, myCursorEmmegi)    
-    synchronize_organizations(dbSage, myCursorSage, now, myCursorEmmegi)    
+    synchronize_paymentMethods(dbSage, myCursorSage, now, myCursor)    
+    synchronize_organizations(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -379,8 +379,8 @@ def main():
     logging.info('')
 
     # Closing databases
-    dbEmmegi.close()
-    myCursorEmmegi.close()
+    db.close()
+    myCursor.close()
     myCursorSage.close()
     dbSage.close()
 

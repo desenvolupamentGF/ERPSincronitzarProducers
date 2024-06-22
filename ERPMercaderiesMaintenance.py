@@ -363,19 +363,19 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbOrigin = None
+    db = None
     try:
-        dbOrigin = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        mycursor = dbOrigin.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        mycursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbOrigin)
+        disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_families(dbOrigin, mycursor, now)
-    synchronize_projects(dbOrigin, mycursor, now)
-    synchronize_products(dbOrigin, mycursor, now)    
+    synchronize_families(db, mycursor, now)
+    synchronize_projects(db, mycursor, now)
+    synchronize_products(db, mycursor, now)    
 
     # Send email with execution summary
     send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -385,7 +385,7 @@ def main():
 
     # Closing database
     mycursor.close()
-    dbOrigin.close()
+    db.close()
 
     sys.exit(0)
 

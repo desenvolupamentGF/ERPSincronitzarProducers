@@ -82,7 +82,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_contactesProveidors(now, myCursorEmmegi, suppliersExcel, contactsExcel):
+def synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel):
     logging.info('   Processing contactes proveïdors from origin ERP (Excel)')
 
     try:
@@ -127,7 +127,7 @@ def synchronize_contactesProveidors(now, myCursorEmmegi, suppliersExcel, contact
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, "CONTACTE_" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+            glam_id, old_data_hash = get_value_from_database(myCursor, "CONTACTE_" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -151,7 +151,7 @@ def synchronize_contactesProveidors(now, myCursorEmmegi, suppliersExcel, contact
         send_email("ERPProveidorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_campsPersonalitzatsProveidors(now, myCursorEmmegi, suppliersExcel, contactsExcel):
+def synchronize_campsPersonalitzatsProveidors(now, myCursordb, suppliersExcel, contactsExcel):
     logging.info('   Processing camps personalitzats proveïdors from origin ERP (Excel)')
 
     try:
@@ -218,7 +218,7 @@ def synchronize_campsPersonalitzatsProveidors(now, myCursorEmmegi, suppliersExce
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, "PERSONALITZAT_" + str(_idPersonalitzat).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+            glam_id, old_data_hash = get_value_from_database(myCursor, "PERSONALITZAT_" + str(_idPersonalitzat).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -256,14 +256,14 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbEmmegi = None
+    db = None
     try:
-        dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        myCursorEmmegi = dbEmmegi.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        myCursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
 
     logging.info('   Opening Excel file Contactes Proveïdors DEFINITIU MACROS.xlsmx')
@@ -276,16 +276,16 @@ def main():
         logging.info('   File Contactes Proveïdors DEFINITIU MACROS.xlsmx does not exist. Exiting...')
         logging.info('END ERP Proveïdors Maintenance')
         send_email("ERPProveidorsMaintenance", now, datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
     except Exception as e:
         logging.error('   Unexpected error when opening Excel file: ' + str(e))
         send_email("ERPProveidorsMaintenance", now, datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)    
+        disconnectMySQL(db)    
         sys.exit(1)                           
 
-    synchronize_contactesProveidors(now, myCursorEmmegi, suppliersExcel, contactsExcel)    
-    synchronize_campsPersonalitzatsProveidors(now, myCursorEmmegi, suppliersExcel, contactsExcel)    
+    synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel)    
+    synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel, contactsExcel)    
 
     # Send email with execution summary
     send_email("ERPProveidorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -294,8 +294,8 @@ def main():
     logging.info('')
 
     # Closing databases
-    dbEmmegi.close()
-    myCursorEmmegi.close()
+    db.close()
+    myCursor.close()
 
     sys.exit(0)
 

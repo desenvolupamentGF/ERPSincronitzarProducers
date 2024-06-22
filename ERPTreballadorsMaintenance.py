@@ -90,7 +90,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_departments(dbBiostar, myCursorBiostar, now, myCursorEmmegi):
+def synchronize_departments(dbBiostar, myCursorBiostar, now, myCursor):
     logging.info('   Processing departments from origin ERP (Biostar)')
 
     # processing departments from origin ERP (Biostar)
@@ -115,7 +115,7 @@ def synchronize_departments(dbBiostar, myCursorBiostar, now, myCursorEmmegi):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, str(_code).strip(), URL_DEPARTMENTS, "Treballadors ERP GF", "Biostar")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_DEPARTMENTS, "Treballadors ERP GF", "Biostar")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -140,7 +140,7 @@ def synchronize_departments(dbBiostar, myCursorBiostar, now, myCursorEmmegi):
         disconnectSQLServer(dbBiostar)
         sys.exit(1)
 
-def synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursorEmmegi):
+def synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursor):
     logging.info('   Processing workers from origin ERP (Biostar)')
 
     # processing workers from origin ERP (Biostar)
@@ -319,7 +319,7 @@ def synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, m
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, str(_code).strip(), URL_WORKERS, "Treballadors ERP GF", "Biostar")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_WORKERS, "Treballadors ERP GF", "Biostar")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -359,14 +359,14 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbEmmegi = None
+    db = None
     try:
-        dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        myCursorEmmegi = dbEmmegi.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        myCursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
 
     # connecting to Biostar database (SQLServer)
@@ -391,8 +391,8 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_departments(dbBiostar, myCursorBiostar, now, myCursorEmmegi)    
-    synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursorEmmegi)    
+    synchronize_departments(dbBiostar, myCursorBiostar, now, myCursor)    
+    synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -401,8 +401,8 @@ def main():
     logging.info('')
 
     # Closing databases
-    dbEmmegi.close()
-    myCursorEmmegi.close()
+    db.close()
+    myCursor.close()
     myCursorBiostar.close()
     dbBiostar.close()
     myCursorSage.close()

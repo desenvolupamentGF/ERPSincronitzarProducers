@@ -95,7 +95,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_clients(now, myCursorEmmegi):
+def synchronize_clients(now, myCursor):
     logging.info('   Processing clients from origin ERP (Pipedrive)')
 
     try:
@@ -121,7 +121,7 @@ def synchronize_clients(now, myCursorEmmegi):
 
                     # We need to get the GUID of the organization using the name of the organization. Hard but we try via removing special characters and comparing uppercase values.
                     helper = replaceCharacters(str(data["org_name"]).strip(), [".",",","-","'"," "], True)    
-                    glam_id, old_data_hash = get_value_from_database_helper(myCursorEmmegi, 'Organizations ERP GF', 'Sage', helper)
+                    glam_id, old_data_hash = get_value_from_database_helper(myCursor, 'Organizations ERP GF', 'Sage', helper)
                     if glam_id is None: 
                         logging.warning('Organization not found on the helper column of ERPIntegration: ' + str(helper))
                         continue # if not found, this contact is not used. Next!
@@ -157,7 +157,7 @@ def synchronize_clients(now, myCursorEmmegi):
 
                     #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                     data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                    glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, data["correlationId"], URL_PERSONS, "Clients ERP GF", "Pipedrive")
+                    glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_PERSONS, "Clients ERP GF", "Pipedrive")
 
                     if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -202,17 +202,17 @@ def main():
     logging.info('   Connecting to database')
 
     # connecting to database (MySQL)
-    dbEmmegi = None
+    db = None
     try:
-        dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        myCursorEmmegi = dbEmmegi.cursor()
+        db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
+        myCursor = db.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to MySQL emmegi database: ' + str(e))
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_clients(now, myCursorEmmegi)    
+    synchronize_clients(now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -221,8 +221,8 @@ def main():
     logging.info('')
 
     # Closing databases
-    dbEmmegi.close()
-    myCursorEmmegi.close()
+    db.close()
+    myCursor.close()
 
     sys.exit(0)
 
