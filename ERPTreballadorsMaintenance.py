@@ -53,10 +53,10 @@ SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
 SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
 SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
-SQLSERVER1_USER = os.environ['SQLSERVER1_USER']
-SQLSERVER1_PASSWORD = os.environ['SQLSERVER1_PASSWORD']
-SQLSERVER1_HOST = os.environ['SQLSERVER1_HOST']
-SQLSERVER1_DATABASE = os.environ['SQLSERVER1_DATABASE']
+BIOSTAR_SQLSERVER_USER = os.environ['BIOSTAR_SQLSERVER_USER']
+BIOSTAR_SQLSERVER_PASSWORD = os.environ['BIOSTAR_SQLSERVER_PASSWORD']
+BIOSTAR_SQLSERVER_HOST = os.environ['BIOSTAR_SQLSERVER_HOST']
+BIOSTAR_SQLSERVER_DATABASE = os.environ['BIOSTAR_SQLSERVER_DATABASE']
 
 # Other constants
 NUM_WEEKLY_WORK_HOURS = 40
@@ -372,7 +372,7 @@ def main():
     # connecting to Biostar database (SQLServer)
     dbBiostar = None
     try:
-        dbBiostar = connectSQLServer(SQLSERVER1_USER, SQLSERVER1_PASSWORD, SQLSERVER1_HOST, SQLSERVER1_DATABASE)
+        dbBiostar = connectSQLServer(BIOSTAR_SQLSERVER_USER, BIOSTAR_SQLSERVER_PASSWORD, BIOSTAR_SQLSERVER_HOST, BIOSTAR_SQLSERVER_DATABASE)
         myCursorBiostar = dbBiostar.cursor()
     except Exception as e:
         logging.error('   Unexpected error when connecting to SQLServer Biostar database: ' + str(e))
