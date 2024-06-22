@@ -81,7 +81,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_users(dbEmmegi, myCursorEmmegi, now):
+def synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor):
     logging.info('   Processing users from origin ERP (Emmegi)')
 
     # processing users from origin ERP (Emmegi)
@@ -112,7 +112,7 @@ def synchronize_users(dbEmmegi, myCursorEmmegi, now):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursorEmmegi, str(_id).strip(), URL_USERS, "Users ERP GF", "Emmegi")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id).strip(), URL_USERS, "Users ERP GF", "Emmegi")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -161,7 +161,18 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_users(db, myCursor, now)    
+    # connecting to origin database (Emmegi - MySQL)
+    dbEmmegi = None
+    try:
+        dbEmmegi = connectMySQL(EMMEGI_MYSQL_USER, EMMEGI_MYSQL_PASSWORD, EMMEGI_MYSQL_HOST, EMMEGI_MYSQL_DATABASE)
+        myCursorEmmegi = db.cursor()
+    except Exception as e:
+        logging.error('   Unexpected error when connecting to Emmegi MySQL database: ' + str(e))
+        send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectMySQL(dbEmmegi)
+        sys.exit(1)
+
+    synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -170,6 +181,8 @@ def main():
     logging.info('')
 
     # Closing databases
+    myCursorEmmegi.close()
+    dbEmmegi.close()
     myCursor.close()
     db.close()
 

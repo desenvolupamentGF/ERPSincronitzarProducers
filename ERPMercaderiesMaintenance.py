@@ -81,20 +81,20 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_families(dbOrigin, mycursor, now):
+def synchronize_families(dbEmmegi, myCursorEmmegi, now, myCursor):
     logging.info('   Processing families from origin ERP (Emmegi)')
 
     # processing families from origin ERP (Emmegi)
     try:
         # loop over the families
-        mycursor.execute("SELECT IdClasse, Descrizione FROM fpsuitedb.articoliclassi")
+        myCursorEmmegi.execute("SELECT IdClasse, Descrizione FROM fpsuitedb.articoliclassi")
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
         i = 0
         j = 0
-        for _code, _description in mycursor.fetchall():
+        for _code, _description in myCursorEmmegi.fetchall():
             data={
                 "queueType": "MERCADERIES_FAMILIES",
                 "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
@@ -109,7 +109,7 @@ def synchronize_families(dbOrigin, mycursor, now):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(mycursor, str(_code).strip(), URL_FAMILIES, "Mercaderies ERP GF", "Emmegi")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_FAMILIES, "Mercaderies ERP GF", "Emmegi")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -131,23 +131,23 @@ def synchronize_families(dbOrigin, mycursor, now):
     except Exception as e:
         logging.error('   Unexpected error when processing families from original ERP (Emmegi): ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbOrigin)
+        disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-def synchronize_projects(dbOrigin, mycursor, now):
+def synchronize_projects(dbEmmegi, myCursorEmmegi, now, myCursor):
     logging.info('   Processing projects from origin ERP (Emmegi)') 
 
     # processing projects from origin ERP (Emmegi)
     try:
         # loop over the projects
-        mycursor.execute("SELECT pkid, ragsoc FROM fp_pro32.fp_codtabindirizzi")
+        myCursorEmmegi.execute("SELECT pkid, ragsoc FROM fp_pro32.fp_codtabindirizzi")
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
         i = 0
         j = 0
-        for _id, _description in mycursor.fetchall():
+        for _id, _description in myCursorEmegi.fetchall():
 
             data={
                 "queueType": "MERCADERIES_PROJECTES",
@@ -164,7 +164,7 @@ def synchronize_projects(dbOrigin, mycursor, now):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(mycursor, str(_id).strip(), URL_LOCATIONS, "Mercaderies ERP GF", "Emmegi")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id).strip(), URL_LOCATIONS, "Mercaderies ERP GF", "Emmegi")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -186,10 +186,10 @@ def synchronize_projects(dbOrigin, mycursor, now):
     except Exception as e:
         logging.error('   Unexpected error when processing projects from original ERP (Emmegi): ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbOrigin)
+        disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-def synchronize_products(dbOrigin, mycursor, now):
+def synchronize_products(dbEmmegi, myCursorEmmegi, now, myCursor):
     logging.info('   Processing products from origin ERP (Emmegi)')
 
     # processing products from origin ERP (Emmegi)
@@ -205,7 +205,7 @@ def synchronize_products(dbOrigin, mycursor, now):
         costos = {}
 
         # loop over the costs
-        mycursor.execute("""
+        myCursorEmmegi.execute("""
             SELECT a.Codice, case when afc.PrezzoUnitSc = 0 then ifnull(ava.Costo,0) else afc.PrezzoUnitSc end, max(afc.PrezzoUnitSc * af.Pred)
             from fpsuitedb.articoli a
             join fpsuitedb.articolifornitori af on a.Codice = af.Codice
@@ -218,7 +218,7 @@ def synchronize_products(dbOrigin, mycursor, now):
             order by a.Codice, af.Pred desc
                          """)
 
-        for _code, _price, _referencia in mycursor.fetchall():
+        for _code, _price, _referencia in myCursorEmmegi.fetchall():
             if _code not in costos:
                 costos[_code] = []
             costos[_code].append(
@@ -230,7 +230,7 @@ def synchronize_products(dbOrigin, mycursor, now):
 
         # ARA AGAFEM TOTS ELS PREUS DE COMPRA DELS ARTICLES I ELS UTILITZAREM COM A ÚLTIM COST
 
-        mycursor.execute("""
+        myCursorEmmegi.execute("""
             select 
                 date(o.DataOrd), 
                 ov.Codice, 
@@ -252,7 +252,7 @@ def synchronize_products(dbOrigin, mycursor, now):
             group by date(o.DataOrd), ov.Codice
                                      """)
 
-        for _data, _code, _price in mycursor.fetchall():
+        for _data, _code, _price in myCursorEmmegi.fetchall():
             if _code not in costos:
                 costos[_code] = []
             costos[_code].append(
@@ -264,7 +264,7 @@ def synchronize_products(dbOrigin, mycursor, now):
 
         logging.info('      Synchronizing Products')
 
-        mycursor.execute("""
+        myCursorEmmegi.execute("""
                 select 
                     Codice,
                     Case when trim(Descrizione) = "" then Codice else Descrizione end Descrizione, 
@@ -291,7 +291,7 @@ def synchronize_products(dbOrigin, mycursor, now):
 
         i = 0
         j = 0 
-        for _code, _description, _family_id, _format_code in mycursor.fetchall():
+        for _code, _description, _family_id, _format_code in myCursorEmmegi.fetchall():
             cost_list = costos.get(_code, [])
             data={
                 "queueType": "MERCADERIES_PRODUCTES",
@@ -314,7 +314,7 @@ def synchronize_products(dbOrigin, mycursor, now):
                 continue # skip this product
 
             # Get Glam Family id.
-            glam_family_id, nothing_to_do = get_value_from_database(mycursor, correlation_id=data['familyCorrelationId'], url=URL_FAMILIES, endPoint="Mercaderies ERP GF", origin="Emmegi")
+            glam_family_id, nothing_to_do = get_value_from_database(myCursor, correlation_id=data['familyCorrelationId'], url=URL_FAMILIES, endPoint="Mercaderies ERP GF", origin="Emmegi")
             if glam_family_id is None:
                 logging.error('Error sync:' + URL_PRODUCTS + ":" + str(_code).strip() + 
                               " Missing product family: " + URL_FAMILIES + ":" + data['familyCorrelationId'])
@@ -324,7 +324,7 @@ def synchronize_products(dbOrigin, mycursor, now):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(mycursor, str(_code).strip(), URL_PRODUCTS, "Mercaderies ERP GF", "Emmegi")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_PRODUCTS, "Mercaderies ERP GF", "Emmegi")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -346,7 +346,7 @@ def synchronize_products(dbOrigin, mycursor, now):
     except Exception as e:
         logging.error('   Unexpected error when processing products from original ERP (Emmegi): ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbOrigin)
+        disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
 def main():
@@ -366,16 +366,27 @@ def main():
     db = None
     try:
         db = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
-        mycursor = db.cursor()
+        myCursor = db.cursor()
     except Exception as e:
         logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_families(db, mycursor, now)
-    synchronize_projects(db, mycursor, now)
-    synchronize_products(db, mycursor, now)    
+    # connecting to origin database (Emmegi - MySQL)
+    dbEmmegi = None
+    try:
+        dbEmmegi = connectMySQL(EMMEGI_MYSQL_USER, EMMEGI_MYSQL_PASSWORD, EMMEGI_MYSQL_HOST, EMMEGI_MYSQL_DATABASE)
+        myCursorEmmegi = db.cursor()
+    except Exception as e:
+        logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
+        send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectMySQL(dbEmmegi)
+        sys.exit(1)
+
+    synchronize_families(dbEmmegi, myCursorEmmegi, now, myCursor)
+    synchronize_projects(dbEmmegi, myCursorEmmegi, now, myCursor)
+    synchronize_products(dbEmmegi, myCursorEmmegi, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -384,7 +395,9 @@ def main():
     logging.info('')
 
     # Closing database
-    mycursor.close()
+    myCursorEmmegi.close()
+    dbEmmegi.close()
+    myCursor.close()
     db.close()
 
     sys.exit(0)
