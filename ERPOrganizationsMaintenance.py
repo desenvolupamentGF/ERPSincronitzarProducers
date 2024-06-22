@@ -347,7 +347,7 @@ def main():
     logging.info('START ERP Organizations Maintenance - ENVIRONMENT: ' + str(ENVIRONMENT))
     logging.info('   Connecting to database')
 
-    # connecting to Emmegi database (MySQL)
+    # connecting to database (MySQL)
     dbEmmegi = None
     try:
         dbEmmegi = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)

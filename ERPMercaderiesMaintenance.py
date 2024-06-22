@@ -46,6 +46,12 @@ MYSQL_PASSWORD = os.environ['MYSQL_PASSWORD']
 MYSQL_HOST = os.environ['MYSQL_HOST']
 MYSQL_DATABASE = os.environ['MYSQL_DATABASE']
 
+# Database constants
+EMMEGI_MYSQL_USER = os.environ['EMMEGI_MYSQL_USER']
+EMMEGI_MYSQL_PASSWORD = os.environ['EMMEGI_MYSQL_PASSWORD']
+EMMEGI_MYSQL_HOST = os.environ['EMMEGI_MYSQL_HOST']
+EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
+
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -356,7 +362,7 @@ def main():
     logging.info('START ERP Mercaderies Maintenance - ENVIRONMENT: ' + str(ENVIRONMENT))
     logging.info('   Connecting to database')
 
-    # connecting to origin database (EMMEGI - MySQL)
+    # connecting to database (MySQL)
     dbOrigin = None
     try:
         dbOrigin = connectMySQL(MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DATABASE)
