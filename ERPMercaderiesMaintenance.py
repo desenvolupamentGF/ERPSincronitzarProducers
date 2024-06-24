@@ -147,7 +147,7 @@ def synchronize_projects(dbEmmegi, myCursorEmmegi, now, myCursor):
 
         i = 0
         j = 0
-        for _id, _description in myCursorEmegi.fetchall():
+        for _id, _description in myCursorEmmegi.fetchall():
 
             data={
                 "queueType": "MERCADERIES_PROJECTES",
