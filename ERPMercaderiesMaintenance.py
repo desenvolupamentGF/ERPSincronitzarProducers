@@ -377,7 +377,7 @@ def main():
     dbEmmegi = None
     try:
         dbEmmegi = connectMySQL(EMMEGI_MYSQL_USER, EMMEGI_MYSQL_PASSWORD, EMMEGI_MYSQL_HOST, EMMEGI_MYSQL_DATABASE)
-        myCursorEmmegi = db.cursor()
+        myCursorEmmegi = dbEmmegi.cursor()
     except Exception as e:
         logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
