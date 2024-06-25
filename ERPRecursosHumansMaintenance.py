@@ -31,11 +31,13 @@ import os
 URL_CALENDARS = "/calendars"
 URL_DEPARTMENTS = "/departments"
 URL_TIMETABLES = "/timetable"
+URL_WORKFORCES = "/workforces"
 
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_CALENDARS_SESAME = "/schedule/v1/holiday-calendar"
 URL_DEPARTMENTS_SESAME = "/core/v3/departments"
 URL_TIMETABLES_SESAME = "/schedule/v1/schedule-templates"
+URL_EMPLOYEES_SESAME = "/core/v3/employees"
 URL_API_SESAME = os.environ['URL_API_SESAME']
 TOKEN_API_SESAME = os.environ['TOKEN_API_SESAME']
 
@@ -302,6 +304,73 @@ def synchronize_timetables(now, myCursor):
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
+def synchronize_workforces(now, myCursor):
+    logging.info('   Processing workforces from origin ERP (Sesame)')
+
+    try:
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        endProcess = False
+        page = 1        
+        while not endProcess:
+
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
+                "Content-Type": "application/json"
+            }
+
+            get_req = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page), headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
+
+            for data in response["data"]:
+
+                _name = data["jobChargeName"]
+                _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
+                    
+                data={
+                    "queueType": "RRHH_WORKFORCES",
+                    "name": str(_name).strip(),
+                    "companyId": str(_companyId).strip(),
+                    "correlationId": str(_name).strip()                    
+                }
+
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_WORKFORCES, "Recursos Humans ERP GF", "Sesame")
+
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing workforce: ' + data["name"] + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized workforces...')    
+
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(page):
+                endProcess = True
+            else:
+                page = page + 1
+
+        logging.info('      Total synchronized workforces: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        logging.error('   Unexpected error when processing workforces from original ERP (Sesame): ' + str(e))
+        send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        sys.exit(1)
+
 def main():
 
     executionResult = "OK"
@@ -329,6 +398,7 @@ def main():
     synchronize_calendarisLaborals(now, myCursor)    
     synchronize_departments(now, myCursor)    
     synchronize_timetables(now, myCursor)    
+    synchronize_workforces(now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
