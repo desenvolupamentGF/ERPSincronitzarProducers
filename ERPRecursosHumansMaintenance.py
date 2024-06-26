@@ -336,7 +336,7 @@ def synchronize_workforces(now, myCursor):
                         "queueType": "RRHH_WORKFORCES",
                         "name": str(_name).strip(),
                         "companyId": str(_companyId).strip(),
-                        "correlationId": hashlib.sha256(str(_name).encode('utf-8')).hexdigest()                    
+                        "correlationId": str(_name).strip()                    
                     }
 
                     #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
