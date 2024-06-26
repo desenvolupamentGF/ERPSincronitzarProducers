@@ -330,26 +330,27 @@ def synchronize_workforces(now, myCursor):
 
                 _name = data["jobChargeName"]
                 _companyId = GLAMSUITE_DEFAULT_COMPANY_ID
-                    
-                data={
-                    "queueType": "RRHH_WORKFORCES",
-                    "name": str(_name).strip(),
-                    "companyId": str(_companyId).strip(),
-                    "correlationId": str(_name).strip()                    
-                }
 
-                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_WORKFORCES, "Recursos Humans ERP GF", "Sesame")
+                if _name is not None:    
+                    data={
+                        "queueType": "RRHH_WORKFORCES",
+                        "name": str(_name).strip(),
+                        "companyId": str(_companyId).strip(),
+                        "correlationId": hashlib.sha256(str(_name).encode('utf-8')).hexdigest()                    
+                    }
 
-                if glam_id is None or str(old_data_hash) != str(data_hash):
+                    #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                    data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                    glam_id, old_data_hash = get_value_from_database(myCursor, data["correlationId"], URL_WORKFORCES, "Recursos Humans ERP GF", "Sesame")
 
-                    logging.info('      Processing workforce: ' + data["name"] + ' ...') 
+                    if glam_id is None or str(old_data_hash) != str(data_hash):
 
-                    # Sending message to queue
-                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+                        logging.info('      Processing workforce: ' + data["name"] + ' ...') 
 
-                    j += 1
+                        # Sending message to queue
+                        myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                        j += 1
 
                 i += 1
                 if i % 1000 == 0:
