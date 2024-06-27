@@ -82,7 +82,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel):
+def synchronize_contactesProveidors(now, myCursor, suppliersExcel):
     logging.info('   Processing contactes proveïdors from origin ERP (Excel)')
 
     try:
@@ -91,24 +91,24 @@ def synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel
 
         i = 0
         j = 0
-        for index, row in contactsExcel[0:1000].iterrows():
+        for index, row in suppliersExcel[0:1000].iterrows():
             _idContact = index + 1
-            _idSupplier = str(row["NIF"])
+            _idSupplier = str(row["CIF"])
             if _idSupplier == "nan":
                 continue # skip to next iteration
             _name = str(row["CONTACTE"])
             if _name == "nan":
                 continue # skip to next iteration
-            _position = str(row["CARREC"])
+            _position = str(row["CÀRREC"])
             if _position == "nan":
                 _position = ""
-            _phone = str(row["TELÈFON"])
+            _phone = str(row["TELEFON"])
             if _phone == "nan":
                 _phone = "No informat"
             _email = str(row["CORREU ELECTRÒNIC"])
             if _email == "nan":
                 _email = "No informat"
-            _comments = str(row["COMENTARI"])
+            _comments = str(row["OBSERVACIONS"])
             if _comments == "nan":
                 _comments = ""
 
@@ -151,7 +151,7 @@ def synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel
         send_email("ERPProveidorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_campsPersonalitzatsProveidors(now, myCursordb, suppliersExcel, contactsExcel):
+def synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel):
     logging.info('   Processing camps personalitzats proveïdors from origin ERP (Excel)')
 
     try:
@@ -162,7 +162,7 @@ def synchronize_campsPersonalitzatsProveidors(now, myCursordb, suppliersExcel, c
         j = 0
         for index, row in suppliersExcel[0:1000].iterrows():
             _idPersonalitzat = index + 1
-            _idSupplier = str(row["NIF"])
+            _idSupplier = str(row["CIF"])
             if _idSupplier == "nan":
                 continue # skip to next iteration
             _tipus = str(row["TIPUS (A-B-C)                                     A-Proveïdors amb més volum de compres històric                                B-Proveïdors alternatius que alguna vegada hem comprat                                         C-Proveïdors amb poques compres "])
@@ -266,14 +266,13 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    logging.info('   Opening Excel file Contactes Proveïdors DEFINITIU MACROS.xlsmx')
+    logging.info('   Opening Excel file ERP-DEFINITIU MACROS.xlsmx')
 
     # opening Excel file
     try:
-        suppliersExcel = pandas.read_excel('excel/Contactes Proveïdors DEFINITIU MACROS.xlsm', sheet_name="Proveïdors", usecols="A:V")
-        contactsExcel = pandas.read_excel('excel/Contactes Proveïdors DEFINITIU MACROS.xlsm', sheet_name="Contactes", usecols="A:G")
+        suppliersExcel = pandas.read_excel('excel/ERP-DEFINITIU MACROS.xlsm', sheet_name="Proveïdors", usecols="A:X")
     except FileNotFoundError as e:
-        logging.info('   File Contactes Proveïdors DEFINITIU MACROS.xlsmx does not exist. Exiting...')
+        logging.info('   File ERP-DEFINITIU MACROS.xlsmx does not exist. Exiting...')
         logging.info('END ERP Proveïdors Maintenance')
         send_email("ERPProveidorsMaintenance", now, datetime.now(), "ERROR")
         disconnectMySQL(db)
@@ -284,8 +283,8 @@ def main():
         disconnectMySQL(db)    
         sys.exit(1)                           
 
-    synchronize_contactesProveidors(now, myCursor, suppliersExcel, contactsExcel)    
-    synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel, contactsExcel)    
+    synchronize_contactesProveidors(now, myCursor, suppliersExcel)    
+    synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel)    
 
     # Send email with execution summary
     send_email("ERPProveidorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
