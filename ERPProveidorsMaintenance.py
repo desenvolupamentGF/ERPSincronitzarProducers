@@ -88,7 +88,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-# INICI CODE OBSOLET (NO TORNAR A ACTIVAR!)
+# INICI CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
 #
 #
 #def synchronize_contactesProveidors(now, myCursor, suppliersExcel):
@@ -252,7 +252,7 @@ class RabbitPublisherService:
 #        sys.exit(1)
 #
 #
-# FINAL CODE OBSOLET (NO TORNAR A ACTIVAR!)
+# FINAL CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
 
 def synchronize_contactesProveidors(dbEmmegi, myCursorEmmegi, now, myCursor):
     logging.info('   Processing contactes proveïdors from origin ERP (Emmegi/GFIntranet)')
@@ -343,7 +343,7 @@ def main():
         disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-    # INICI CODE OBSOLET (NO TORNAR A ACTIVAR!)
+    # INICI CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
     #
     #
     # L'excel ERP-DEFINITIU MACROS.xlsmx s'ha carregat una única vegada. Comento codi perquè no es necessitarà mai més
@@ -368,7 +368,7 @@ def main():
     #synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel)    
     #
     #
-    # FINAL CODE OBSOLET (NO TORNAR A ACTIVAR!)
+    # FINAL CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
 
     synchronize_contactesProveidors(dbEmmegi, myCursorEmmegi, now, myCursor)    
 
