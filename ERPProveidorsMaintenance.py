@@ -259,7 +259,7 @@ def synchronize_contactesProveidors(dbEmmegi, myCursorEmmegi, now, myCursor):
 
     try:
         # loop over the contacts
-        myCursorEmmegi.execute("SELECT a.email_id as id, a.email, b.cfian, b.denan FROM gfintranet.gfi_prov_emails a, fpsuitedb.anagrafiche b WHERE a.prov_id = b.idAn AND a.activo = 1 AND b.cfian <> '' AND 1=2 ") 
+        myCursorEmmegi.execute("SELECT a.email_id as id, a.email, b.cfian, b.denan FROM gfintranet.gfi_prov_emails a, fpsuitedb.anagrafiche b WHERE a.prov_id = b.idAn AND a.activo = 1 AND b.cfian <> '' AND a.email <> '' AND 1=2 ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
