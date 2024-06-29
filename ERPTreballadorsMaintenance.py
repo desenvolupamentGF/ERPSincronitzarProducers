@@ -43,6 +43,7 @@ GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_CONTAINE
 GLAMSUITE_DEFAULT_CALENDAR_ID = os.environ['GLAMSUITE_DEFAULT_CALENDAR_ID']
 GLAMSUITE_DEFAULT_ZONE_EPI_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_EPI_ID'] 
 GLAMSUITE_DEFAULT_WORKFORCE_ID = os.environ['GLAMSUITE_DEFAULT_WORKFORCE_ID']
+GLAMSUITE_DEFAULT_TIMETABLE_ID = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -283,6 +284,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         "workforceId": str(_workforce),
                         "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                         "annualWorkingHours": annualWorkingHours,
+                        "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                         "correlationId": str(dni).strip()
                     }     
                 else:
@@ -295,6 +297,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         "workforceId": str(_workforce),
                         "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                         "annualWorkingHours": annualWorkingHours,
+                        "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                         "correlationId": str(dni).strip()
                     }     
 
