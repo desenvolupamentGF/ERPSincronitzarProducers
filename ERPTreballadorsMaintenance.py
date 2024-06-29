@@ -135,8 +135,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
                 _workforce = data["jobChargeName"]
                 if _workforce is None:
-                    _workforce = GLAMSUITE_DEFAULT_WORKFORCE_ID # General
-                    _dept = "General" # FELIX: Demanar a Victoria si pot crear un departament genèric/general? 
+                    logging.error('Worker without jobChargeName populated: ' + data["nid"])
+                    continue # if not populated, this worker is not used. Next!
                 else:
                     # We need to get the department name using the workforce.
                     glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', _workforce)
