@@ -1,7 +1,7 @@
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
-ENVIRONMENT = 1
+ENVIRONMENT = 0
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
@@ -18,6 +18,9 @@ import json
 # for RabbitMQ messaging between publishers and consumers
 import pika
 
+# Import needed library for HTTP requests
+import requests
+
 # extra imports
 import sys
 import datetime
@@ -25,8 +28,12 @@ from utils import send_email, connectSQLServer, disconnectSQLServer, connectMySQ
 import os
 
 # End points URLs
-URL_DEPARTMENTS = '/departments'
 URL_WORKERS = '/workers'
+
+# FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
+URL_EMPLOYEES_SESAME = "/core/v3/employees"
+URL_API_SESAME = os.environ['URL_API_SESAME']
+TOKEN_API_SESAME = os.environ['TOKEN_API_SESAME']
 
 # Glam Suite constants
 GLAMSUITE_DEFAULT_COMPANY_ID = os.environ['GLAMSUITE_DEFAULT_COMPANY_ID']
@@ -53,14 +60,12 @@ SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
 SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
 SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
-BIOSTAR_SQLSERVER_USER = os.environ['BIOSTAR_SQLSERVER_USER']
-BIOSTAR_SQLSERVER_PASSWORD = os.environ['BIOSTAR_SQLSERVER_PASSWORD']
-BIOSTAR_SQLSERVER_HOST = os.environ['BIOSTAR_SQLSERVER_HOST']
-BIOSTAR_SQLSERVER_DATABASE = os.environ['BIOSTAR_SQLSERVER_DATABASE']
-
 # Other constants
+CONN_TIMEOUT = 50
 NUM_WEEKLY_WORK_HOURS = 40
+NUM_WEEKS_YEAR = 46 
 
+# TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -72,6 +77,19 @@ def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin
         hash = str(x[1])
 
     return erpGFId, hash
+
+# TO BE USED ONLY WHEN COLUMN helper ON TABLE ERPIntegration IS NEEDED !!!
+def get_value_from_database_helper(mycursor, endPoint, origin, correlationId):
+    mycursor.execute("SELECT erpGFId, helper FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND deploy = " + str(ENVIRONMENT) + " AND correlationId = '" + str(correlationId) + "'")
+    myresult = mycursor.fetchall()
+
+    erpGFId = None
+    helper = None
+    for x in myresult:
+        erpGFId = str(x[0])
+        helper = str(x[1])
+
+    return erpGFId, helper
 
 class RabbitPublisherService:
 
@@ -90,258 +108,254 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_departments(dbBiostar, myCursorBiostar, now, myCursor):
-    logging.info('   Processing departments from origin ERP (Biostar)')
+def synchronize_workers(dbSage, myCursorSage, now, myCursor):
+    logging.info('   Processing workers from origin ERP (Sesame/Sage)')
 
-    # processing departments from origin ERP (Biostar)
+    # processing workers from origin ERP (Sesame)
     try:
-        # loop over the departments
-        myCursorBiostar.execute("SELECT nDepartmentIdn, sName FROM [BioStar].dbo.tb_user_dept ") 
-
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
         i = 0
         j = 0
-        for _code, _name in myCursorBiostar.fetchall():
+        endProcess = False
+        page = 1        
+        while not endProcess:
 
-            data={
-                "queueType": "TREBALLADORS_DEPARTAMENTS",
-                "name": str(_name).strip(),
-                "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
-                "calendarId": GLAMSUITE_DEFAULT_CALENDAR_ID,
-                "correlationId": str(_code).strip()
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
+                "Content-Type": "application/json"
             }
 
-            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_DEPARTMENTS, "Treballadors ERP GF", "Biostar")
+            get_req = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page), headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
 
-            if glam_id is None or str(old_data_hash) != str(data_hash):
+            for data in response["data"]:
 
-                logging.info('      Processing department ' + str(_code).strip() + ' / ' + str(_name).strip() + ' ...') 
-
-                # Sending message to queue
-                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
-
-                j += 1
-
-            i += 1
-            if i % 1000 == 0:
-                logging.info('      ' + str(i) + ' synchronized departments...')
-        logging.info('      Total synchronized departments: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')                       
-
-        # Closing queue
-        myRabbitPublisherService.close()
-
-    except Exception as e:
-        logging.error('   Unexpected error when processing departments from original ERP (Biostar): ' + str(e))
-        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectSQLServer(dbBiostar)
-        sys.exit(1)
-
-def synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursor):
-    logging.info('   Processing workers from origin ERP (Biostar)')
-
-    # processing workers from origin ERP (Biostar)
-    try:
-        # loop over the workers
-        # No agafem del departament 28 (no actius)
-        # Ni ETTs ni Becaris
-        myCursorBiostar.execute("SELECT nDepartmentIdn, sUserID, sUserName, sEmail as dni " \
-                                "FROM [BioStar].dbo.tb_user " \
-                                "WHERE nDepartmentIdn NOT IN (28) " \
-                                "AND sUserName NOT LIKE 'ETT %' " \
-                                "AND sUserName NOT LIKE 'BEC %' " \
-                                "AND sUserName NOT LIKE 'New User%' " \
-                                "AND sUserName NOT IN ('admin','DEV','AUXILIAR IT','AUXILIAR COMPRAS','AUX COMERCIAL') ")
-
-        # Preparing message queue
-        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
-
-        i = 0
-        j = 0
-        for _dept, _code, _name, _dni in myCursorBiostar.fetchall():
-
-            myCursorSage.execute("SELECT en.idEmpleado, " \
-                                 "p.DNI, " \
-                                 "RTRIM(pd.CodigoSigla + ' ' + LTRIM(pd.ViaPublica + ' ') + LTRIM(pd.Numero1 + ' ') + LTRIM(pd.Numero2 + ' ') + LTRIM(pd.Escalera + ' ') + LTRIM(pd.Piso + ' ') + LTRIM(pd.Puerta + ' ') + LTRIM(pd.Letra)) AS direccion, " \
-                                 "pd.CodigoPostal, " \
-                                 "pd.Municipio, " \
-                                 "pd.Provincia, " \
-                                 "ec.ibanReceptor, " \
-                                 "c.codigoContrato, " \
-                                 "c.subCodigoContrato, " \
-                                 "en.fechaInicioContrato, " \
-                                 "en.fechaFinalContrato, " \
-                                 "en.porJornada AS porcentajeJornada, " \
-                                 "p.SiglaNacion, " \
-                                 "p.primerApellidoEmpleado, " \
-                                 "p.segundoApellidoEmpleado, "\
-                                 "p.nombreEmpleado "       
-                                 "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
-                                 "INNER JOIN [GARCIAFAURA].dbo.Personas p ON p.SiglaNacion = en.SiglaNacion AND p.Dni = en.Dni " \
-                                 "INNER JOIN [GARCIAFAURA].dbo.PersonasDomicilios AS pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
-                                 "INNER JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
-                                 "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
-                                 "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
-                                 "AND en.FechaBaja IS NULL " \
-                                 "AND p.dni = '" + str(_dni).strip() + "'"
-                                 "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
-            record = myCursorSage.fetchone()   
-
-            nif = str(_code).strip()
-            address = ""
-            postalCode = ""
-            city = ""
-            region = ""
-            iban = ""
-            costs = {} 
-            departmentId = _dept  
-            contractNumber = ""
-            contractTypeId = 0
-            startDate = ""
-            endDate = ""
-            workingHours = 0
-            
-            if record is not None:           
-                idEmpleado = str(record[0]).strip()
-                nif = record[1].strip()
-                address = record[2].strip()
-                postalCode = record[3].strip()
-                city = record[4].strip()
-                region = record[5].strip()
-                iban = record[6].strip()
-                contractNumber = (str(record[7]) + "/" + str(record[8])).strip()
-                contractTypeId = 1 # Contracte indefinit
-                if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
-                    contractTypeId = 2 # Contracte temporal
-                if record[9] is not None:
-                    startDate = record[9].strftime("%Y-%m-%dT%H:%M:%SZ")
-                if record[10] is not None:
-                    endDate = record[9].strftime("%Y-%m-%dT%H:%M:%SZ")
-                workingHours = float(record[11] * NUM_WEEKLY_WORK_HOURS / 100)    
-                country_code = record[12]
-
-                primerApellidoEmpleado = record[13]
-                segundoApellidoEmpleado = record[14]
-                nombreEmpleado = record[15]
-                _name = nombreEmpleado.strip()
-                if primerApellidoEmpleado.strip() != "":
-                    _name = _name + ' ' + primerApellidoEmpleado.strip()
-                if segundoApellidoEmpleado.strip() != "":
-                    _name = _name + ' ' + segundoApellidoEmpleado.strip()
-
-                myCursorSage.execute("SELECT YEAR(fechacobro), SUM(importenom) " \
-                                     "FROM [GARCIAFAURA].dbo.historico " \
-                                     "WHERE idEmpleado = '" + idEmpleado + "' " \
-                                     "AND codigoconceptonom NOT IN (838, 839, 840, 862, 963) " \
-                                     "AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
-                                     "GROUP BY YEAR(fechaCobro) " \
-                                     "ORDER BY YEAR(fechaCobro) ")
-
-                for _year, _cost in myCursorSage.fetchall():
-                    if _code not in costs:
-                        costs[_code] = []                    
-                    costs[_code].append(
-                    {
-                        "exercise": _year,   
-                        "cost": float(_cost)
-                    }
-                )
-
-            else:
-                if _dept == 38: # treballadors colombians és normal no trobar-los a sage --> escric warning enlloc d'error
-                    logging.warning('      Treballador departament COLOMBIA no trobat a SAGE: ' + str(_name).strip() + ' ...') 
-                    country_code = 'CO'
+                _workforce = data["jobChargeName"]
+                if _workforce is None:
+                    _workforce = GLAMSUITE_DEFAULT_WORKFORCE_ID # General
+                    _dept = "General" # FELIX: Demanar a Victoria si pot crear un departament genèric/general? 
                 else:
-                    logging.error('      Treballador no trobat a SAGE: ' + str(_name).strip() + ' ...') 
+                    # We need to get the department name using the workforce.
+                    glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', _workforce)
+                    if glam_id is None: 
+                        logging.warning('Workforce not found on the correlationId column of ERPIntegration: ' + str(_workforce))
+                        continue # if not found, this worker is not used. Next!
+
+                dni = data["nid"]
+                name = data["firstName"] + " " + data["lastName"]
+                address = data["address"]
+                postalCode = data["postalCode"]
+                city = data["city"]
+                region = data["province"]
+                country_code = data["country"]
+                iban = data["accountNumber"]
+                costs = {} 
+                contractNumber = ""
+                contractTypeId = 0
+                startDate = ""
+                endDate = ""
+                annualWorkingHours = 0
+
+                myCursorSage.execute("SELECT en.idEmpleado, " \
+                                     "en.codigoEmpleado, " \
+                                     "RTRIM(pd.CodigoSigla + ' ' + LTRIM(pd.ViaPublica + ' ') + LTRIM(pd.Numero1 + ' ') + LTRIM(pd.Numero2 + ' ') + LTRIM(pd.Escalera + ' ') + LTRIM(pd.Piso + ' ') + LTRIM(pd.Puerta + ' ') + LTRIM(pd.Letra)) AS direccion, " \
+                                     "pd.CodigoPostal, " \
+                                     "pd.Municipio, " \
+                                     "pd.Provincia, " \
+                                     "ec.ibanReceptor, " \
+                                     "c.codigoContrato, " \
+                                     "c.subCodigoContrato, " \
+                                     "en.fechaInicioContrato, " \
+                                     "en.fechaFinalContrato, " \
+                                     "en.porJornada AS porcentajeJornada, " \
+                                     "p.SiglaNacion, " \
+                                     "p.primerApellidoEmpleado, " \
+                                     "p.segundoApellidoEmpleado, " \
+                                     "p.nombreEmpleado " \
+                                     "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
+                                     "INNER JOIN [GARCIAFAURA].dbo.Personas p ON p.SiglaNacion = en.SiglaNacion AND p.Dni = en.Dni " \
+                                     "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios AS pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
+                                     "LEFT JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
+                                     "LEFT JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
+                                     "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
+                                     "AND en.FechaBaja IS NULL " \
+                                     "AND p.dni = '" + str(dni).strip() + "'"
+                                     "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
+                record = myCursorSage.fetchone()   
             
-            address = address.ljust(1, ' ')
-            postalCode = postalCode.ljust(1, ' ')
-            city = city.ljust(1, ' ')
-            region = region.ljust(1, ' ')
-            iban = iban.ljust(1, ' ')
+                if record is not None:           
+                    idEmpleado = str(record[0]).strip()
+                    codEmpleado = str(record[1]).strip()
+                    if record[2] is not None:
+                        address = record[2].strip()
+                    if record[3] is not None:
+                        postalCode = record[3].strip()
+                    if record[4] is not None:
+                        city = record[4].strip()
+                    if record[5] is not None:
+                        region = record[5].strip()
+                    if record[6] is not None:
+                        iban = record[6].strip()
+                    if record[7] is not None and record[8] is not None:
+                        contractNumber = (str(record[7]) + "/" + str(record[8])).strip()
+                        contractTypeId = 1 # Contracte indefinit
+                        if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
+                            contractTypeId = 2 # Contracte temporal
+                    if record[9] is not None:
+                        startDate = record[9].strftime("%Y-%m-%dT%H:%M:%SZ")
+                    if record[10] is not None:
+                        endDate = record[10].strftime("%Y-%m-%dT%H:%M:%SZ")
+                    if record[11] is not None:
+                        annualWorkingHours = float((record[11] * NUM_WEEKLY_WORK_HOURS / 100) * NUM_WEEKS_YEAR)
+                    if record[12] is not None:                            
+                        country_code = record[12]
 
-            linkedInProfile = " "
+                    primerApellidoEmpleado = record[13]
+                    segundoApellidoEmpleado = record[14]
+                    nombreEmpleado = record[15]
+                    name = nombreEmpleado.strip()
+                    if primerApellidoEmpleado.strip() != "":
+                        name = name + ' ' + primerApellidoEmpleado.strip()
+                    if segundoApellidoEmpleado.strip() != "":
+                        name = name + ' ' + segundoApellidoEmpleado.strip()
 
-            if endDate == "":
-                dataContract={
-                    "contractNumber": contractNumber,
-                    "contractTypeId": contractTypeId,
-                    "startDate": startDate,
-                    "departmentId": departmentId,
-                    "workforceId": str(GLAMSUITE_DEFAULT_WORKFORCE_ID),
-                    "workingHours": workingHours,
-                    "correlationId": str(_code).strip()
-                }     
+                    myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
+                                         "  SELECT YEAR(fechacobro) AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
+                                         "  FROM [GARCIAFAURA].dbo.historico " \
+                                         "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  AND codigoconceptonom NOT IN (838, 839, 840, 862, 963) " \
+                                         "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
+                                         "  GROUP BY YEAR(fechaCobro) " \
+                                         "    UNION " \
+                                         "  SELECT YEAR(fechacobro) AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
+                                         "  FROM [GARCIAFAURA].dbo.historico " \
+                                         "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  AND codigoconceptonom IN (838, 839, 840, 862, 963) " \
+                                         "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
+                                         "  GROUP BY YEAR(fechaCobro)) t " \
+                                         " GROUP BY year " \
+                                         "ORDER BY year ")
+
+                    for _year, _annualGrossSalary, _annualSocialSecurityContribution, _annualOtherExpenses in myCursorSage.fetchall():
+                        if dni not in costs:
+                            costs[dni] = []    
+
+                        _input = str(_year) + "/12/31"
+                        _format = '%Y/%m/%d'    
+                        _datetime = datetime.datetime.strptime(_input, _format)                                        
+                        costs[dni].append(
+                        {   
+                            "date": _datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),   
+                            "annualGrossSalary": float(_annualGrossSalary),
+                            "annualSocialSecurityContribution": float(_annualSocialSecurityContribution),
+                            "annualOtherExpenses": float(_annualOtherExpenses),
+                            "correlationId": str(dni).strip()
+                        }
+                    )
+                else:
+                    logging.error('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
+            
+                if address is None:
+                    address = " "
+                if postalCode is None:
+                    postalCode = " "
+                if city is None:
+                    city = " "
+                if region is None:
+                    region = " "
+                if iban is None:
+                    iban = " "
+
+                linkedInProfile = " "
+
+                if endDate == "":
+                    dataContract={
+                        "contractNumber": contractNumber,
+                        "contractTypeId": contractTypeId,
+                        "startDate": startDate,
+                        "departmentId": str(_dept),
+                        "workforceId": str(_workforce),
+                        "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                        "annualWorkingHours": annualWorkingHours,
+                        "correlationId": str(dni).strip()
+                    }     
+                else:
+                    dataContract={
+                        "contractNumber": contractNumber,
+                        "contractTypeId": contractTypeId,
+                        "startDate": startDate,
+                        "endDate": endDate,
+                        "departmentId": str(_dept),
+                        "workforceId": str(_workforce),
+                        "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                        "annualWorkingHours": annualWorkingHours,
+                        "correlationId": str(dni).strip()
+                    }     
+
+                dataLocation={
+                    "correlationId": str(dni),
+                    "zoneId": str(GLAMSUITE_DEFAULT_ZONE_EPI_ID),
+                    "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID),
+                    "containerCode": "EPI" + str(codEmpleado).strip(),
+                    "description": str(name).strip(),
+                    "position": str(codEmpleado).strip(),
+                    "preferential": False
+                }                             
+
+                data={
+                    "queueType": "TREBALLADORS_TREBALLADORS",
+                    "name": str(name).strip(),
+                    "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+                    "nationality": country_code,
+                    "identificationTypeId": 1, # NIF = 1, NIE = 2, TIE = 3, Passport = 4, Others = 5
+                    "identificationNumber": str(dni).strip(),
+                    "address": address,
+                    "postalCode": postalCode,
+                    "city": city,
+                    "region": region,
+                    "countryId": country_code,
+                    "linkedInProfile": linkedInProfile,
+                    "iban": iban, 
+                    "costs": costs.get(dni, []),
+                    "correlationId": str(dni).strip(),
+                    "dataContract": dataContract,
+                    "dataLocation": dataLocation,
+                }
+
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursor, str(dni).strip(), URL_WORKERS, "Treballadors ERP GF", "Sesame/Sage")
+
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing user ' + str(name).strip() + ' del departament ' + str(_dept).strip() + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized workers...')   
+
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(page):
+                endProcess = True
             else:
-                dataContract={
-                    "contractNumber": contractNumber,
-                    "contractTypeId": contractTypeId,
-                    "startDate": startDate,
-                    "endDate": endDate,
-                    "departmentId": departmentId,
-                    "workforceId": str(GLAMSUITE_DEFAULT_WORKFORCE_ID),
-                    "workingHours": workingHours,
-                    "correlationId": str(_code).strip()
-                }     
+                page = page + 1
 
-            dataLocation={
-                "correlationId": str(_code),
-                "zoneId": str(GLAMSUITE_DEFAULT_ZONE_EPI_ID),
-                "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID),
-                "containerCode": "EPI" + str(_code).strip(),
-                "description": str(_name).strip(),
-                "position": str(_code).strip(),
-                "preferential": False
-            }                          
-
-            data={
-                "queueType": "TREBALLADORS_TREBALLADORS",
-                "name": str(_name).strip(),
-                "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
-                "nationality": country_code,
-                "identificationTypeId": 1, # NIF = 1, NIE = 2, TIE = 3, Passport = 4, Others = 5
-                "identificationNumber": str(nif).strip(),
-                "address": address,
-                "postalCode": postalCode,
-                "city": city,
-                "region": region,
-                "countryId": country_code,
-                "linkedInProfile": linkedInProfile,
-                "iban": iban, 
-                "costs": costs.get(_code, []),
-                "correlationId": str(_code).strip(),
-                "dataContract": dataContract,
-                "dataLocation": dataLocation,
-            }
-
-            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, str(_code).strip(), URL_WORKERS, "Treballadors ERP GF", "Biostar")
-
-            if glam_id is None or str(old_data_hash) != str(data_hash):
-
-                logging.info('      Processing user ' + str(_name).strip() + ' del departament ' + str(_dept).strip() + ' ...') 
-
-                # Sending message to queue
-                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
-
-                j += 1
-
-            i += 1
-            if i % 1000 == 0:
-                logging.info('      ' + str(i) + ' synchronized workers...')    
         logging.info('      Total synchronized workers: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
         # Closing queue
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing workers from original ERP (Biostar): ' + str(e))
+        logging.error('   Unexpected error when processing workers from original ERP (Sesame/Sage): ' + str(e))
         send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectSQLServer(dbBiostar)
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
@@ -369,17 +383,6 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    # connecting to Biostar database (SQLServer)
-    dbBiostar = None
-    try:
-        dbBiostar = connectSQLServer(BIOSTAR_SQLSERVER_USER, BIOSTAR_SQLSERVER_PASSWORD, BIOSTAR_SQLSERVER_HOST, BIOSTAR_SQLSERVER_DATABASE)
-        myCursorBiostar = dbBiostar.cursor()
-    except Exception as e:
-        logging.error('   Unexpected error when connecting to SQLServer Biostar database: ' + str(e))
-        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectSQLServer(dbBiostar)
-        sys.exit(1)
-
     # connecting to Sage database (SQLServer)
     dbSage = None
     try:
@@ -391,8 +394,7 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_departments(dbBiostar, myCursorBiostar, now, myCursor)    
-    synchronize_workers(dbBiostar, dbSage, myCursorBiostar, myCursorSage, now, myCursor)    
+    synchronize_workers(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -403,8 +405,6 @@ def main():
     # Closing databases
     db.close()
     myCursor.close()
-    myCursorBiostar.close()
-    dbBiostar.close()
     myCursorSage.close()
     dbSage.close()
 
