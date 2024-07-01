@@ -192,6 +192,9 @@ class RabbitPublisherService:
 #            _producte = str(row["PRODUCTE"])
 #            if _producte == "nan":
 #                _producte = ""
+#            _fabrica = str(row["DISTRIBUIDOR"])
+#            if _fabrica == "nan":
+#                _fabrica = ""
 #            _enviamentComandes = str(row["ENVIAMENT COMANDES"])
 #            if _enviamentComandes == "nan":
 #                _enviamentComandes = ""
@@ -217,6 +220,7 @@ class RabbitPublisherService:
 #                "preus": str(_preus).strip(), 
 #                "familia": str(_familia).strip(), 
 #                "producte": str(_producte).strip(), 
+#                "fabrica": str(_fabrica).strip(), 
 #                "enviamentComandes": str(_enviamentComandes).strip(), 
 #                "reclamacions": str(_reclamacions).strip(), 
 #                "reclamacionsUrgents": str(_reclamacionsUrgents).strip(), 
