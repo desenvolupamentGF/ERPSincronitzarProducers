@@ -10,7 +10,7 @@ ENVIRONMENT = 1
 import logging
 
 # to deal with excel files
-#import pandas
+import pandas
 
 # for hash/encrypt reasons
 import hashlib
@@ -59,6 +59,22 @@ EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
 # Other constants
 CONN_TIMEOUT = 50
 
+GLAMSUITE_TIPUS_ABC_A = "4665e311-b6d6-45d1-fe25-08dc985fd06e"
+GLAMSUITE_TIPUS_ABC_B = "ef08e2f1-f1ce-4f80-fe26-08dc985fd06e"
+GLAMSUITE_TIPUS_ABC_C = "4ee26581-07cc-4300-fe27-08dc985fd06e"
+
+GLAMSUITE_PAGAMENTS_ABC_A = "ccf5acab-c803-4666-fe28-08dc985fd06e"
+GLAMSUITE_PAGAMENTS_ABC_B = "00e6b0d9-b817-4a87-fe29-08dc985fd06e"
+GLAMSUITE_PAGAMENTS_ABC_C = "0002b94c-5ad1-4769-fe2a-08dc985fd06e"
+
+GLAMSUITE_LLIURAMENT_ABC_A = "d7484937-5c20-4074-fe2b-08dc985fd06e"
+GLAMSUITE_LLIURAMENT_ABC_B = "b92d8d76-2cba-4103-fe2c-08dc985fd06e"
+GLAMSUITE_LLIURAMENT_ABC_C = "d0e5a7cf-7803-452e-fe2d-08dc985fd06e"
+
+GLAMSUITE_PREUS_ABC_A = "a6cea6c7-59ac-4fc5-fe2e-08dc985fd06e"
+GLAMSUITE_PREUS_ABC_B = "7f0858ef-d126-4934-fe2f-08dc985fd06e"
+GLAMSUITE_PREUS_ABC_C = "5b079a85-4b5b-485c-fe30-08dc985fd06e"
+
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -91,7 +107,7 @@ class RabbitPublisherService:
 # INICI CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
 #
 #
-#def synchronize_contactesProveidors(now, myCursor, suppliersExcel):
+#def synchronize_contactesProveidors_TEMP(now, myCursor, suppliersExcel):
 #    logging.info('   Processing contactes proveïdors from origin ERP (Excel)')
 #
 #    try:
@@ -100,6 +116,7 @@ class RabbitPublisherService:
 #
 #        i = 0
 #        j = 0
+#        _emailAnt = ""
 #        for index, row in suppliersExcel[0:1000].iterrows():
 #            _idContact = index + 1
 #            _idSupplier = str(row["CIF"])
@@ -111,7 +128,7 @@ class RabbitPublisherService:
 #            _position = str(row["CÀRREC"])
 #            if _position == "nan":
 #                _position = ""
-#            _phone = str(row["TELEFON"])
+#            _phone = str(row["MÒBIL"])
 #            if _phone == "nan":
 #                _phone = "No informat"
 #            _email = str(row["CORREU ELECTRÒNIC"])
@@ -122,7 +139,7 @@ class RabbitPublisherService:
 #                _comments = ""
 #
 #            data={
-#                "queueType": "PROVEIDORS_CONTACTES",
+#                "queueType": "PROVEIDORS_CONTACTES_TEMP",
 #                "name": str(_name).strip(),
 #                "nif": str(_idSupplier).strip(),
 #                "phone": str(_phone).strip(),
@@ -147,6 +164,122 @@ class RabbitPublisherService:
 #
 #                j += 1
 #
+#            _enviamentComandes = str(row["ENVIAMENT COMANDES"])
+#            if _enviamentComandes != "nan" and _enviamentComandes != "" and _enviamentComandes != _emailAnt:
+#                _emailAnt = _enviamentComandes
+#                data={
+#                    "queueType": "PROVEIDORS_CONTACTES_TEMP",
+#                    "name": str(_enviamentComandes).strip(),
+#                    "nif": str(_idSupplier).strip(),
+#                    "phone": "No informat",
+#                    "email": str(_enviamentComandes).strip(),
+#                    "languageId": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
+#                    "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+#                    "position": "Atenció al client (enviament de comandes)",
+#                    "comments": "",
+#                    "correlationId": "CONTACTE_A" + str(_idContact).strip()
+#                }
+#
+#                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+#                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+#                glam_id, old_data_hash = get_value_from_database(myCursor, "CONTACTE_A" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+#
+#                if glam_id is None or str(old_data_hash) != str(data_hash):
+#
+#                    logging.info('      Processing contact: ' + str(_enviamentComandes).strip() + ' ...') 
+#
+#                    # Sending message to queue
+#                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+#
+#                    j += 1
+#
+#            _reclamacions = str(row["RECLAMACIONS"])
+#            if _reclamacions != "nan" and _reclamacions != "" and _reclamacions != _emailAnt:
+#                _emailAnt = _reclamacions                
+#                data={
+#                    "queueType": "PROVEIDORS_CONTACTES_TEMP",
+#                    "name": str(_reclamacions).strip(),
+#                    "nif": str(_idSupplier).strip(),
+#                    "phone": "No informat",
+#                    "email": str(_reclamacions).strip(),
+#                    "languageId": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
+#                    "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+#                    "position": "Atenció al client (reclamacions)",
+#                    "comments": "",
+#                    "correlationId": "CONTACTE_B" + str(_idContact).strip()
+#                }
+#
+#                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+#                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+#                glam_id, old_data_hash = get_value_from_database(myCursor, "CONTACTE_B" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+#
+#                if glam_id is None or str(old_data_hash) != str(data_hash):
+#
+#                    logging.info('      Processing contact: ' + str(_reclamacions).strip() + ' ...') 
+#
+#                    # Sending message to queue
+#                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+#
+#                    j += 1
+#
+#            _reclamacionsUrgents = str(row["RECLAMACIONS URGENTS"])
+#            if _reclamacionsUrgents != "nan" and _reclamacionsUrgents != "" and _reclamacionsUrgents != _emailAnt:
+#                _emailAnt = _reclamacionsUrgents
+#                data={
+#                    "queueType": "PROVEIDORS_CONTACTES_TEMP",
+#                    "name": str(_reclamacionsUrgents).strip(),
+#                    "nif": str(_idSupplier).strip(),
+#                    "phone": "No informat",
+#                    "email": str(_reclamacionsUrgents).strip(),
+#                    "languageId": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
+#                    "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+#                    "position": "Atenció al client (reclamacions urgents)",
+#                    "comments": "",
+#                    "correlationId": "CONTACTE_C" + str(_idContact).strip()
+#                }
+#
+#                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+#                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+#                glam_id, old_data_hash = get_value_from_database(myCursor, "CONTACTE_C" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+#
+#                if glam_id is None or str(old_data_hash) != str(data_hash):
+#
+#                    logging.info('      Processing contact: ' + str(_reclamacionsUrgents).strip() + ' ...') 
+#
+#                    # Sending message to queue
+#                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+#
+#                    j += 1
+#
+#            _reclamacionsCritiques = str(row["RECLAMACIONS CRITIQUES"])
+#            if _reclamacionsCritiques != "nan" and _reclamacionsCritiques != "" and _reclamacionsCritiques != _emailAnt:
+#                _emailAnt = _reclamacionsCritiques
+#                data={
+#                    "queueType": "PROVEIDORS_CONTACTES_TEMP",
+#                    "name": str(_reclamacionsCritiques).strip(),
+#                    "nif": str(_idSupplier).strip(),
+#                    "phone": "No informat",
+#                    "email": str(_reclamacionsCritiques).strip(),
+#                    "languageId": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
+#                    "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+#                    "position": "Atenció al client (reclamacions crítiques)",
+#                    "comments": "",
+#                    "correlationId": "CONTACTE_D" + str(_idContact).strip()
+#                }
+#
+#                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+#                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+#                glam_id, old_data_hash = get_value_from_database(myCursor, "CONTACTE_D" + str(_idContact).strip(), URL_PERSONS, "Proveidors ERP GF", "Excel")
+#
+#                if glam_id is None or str(old_data_hash) != str(data_hash):
+#
+#                    logging.info('      Processing contact: ' + str(_reclamacionsCritiques).strip() + ' ...') 
+#
+#                    # Sending message to queue
+#                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+#
+#                    j += 1
+#
 #            i += 1
 #            if i % 1000 == 0:
 #                logging.info('      ' + str(i) + ' synchronized contactes proveïdors...')    
@@ -160,7 +293,7 @@ class RabbitPublisherService:
 #        send_email("ERPProveidorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
 #        sys.exit(1)
 #
-#def synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel):
+#def synchronize_campsPersonalitzatsProveidors_TEMP(now, myCursor, suppliersExcel):
 #    logging.info('   Processing camps personalitzats proveïdors from origin ERP (Excel)')
 #
 #    try:
@@ -177,15 +310,51 @@ class RabbitPublisherService:
 #            _tipus = str(row["TIPUS (A-B-C)                                     A-Proveïdors amb més volum de compres històric                                B-Proveïdors alternatius que alguna vegada hem comprat                                         C-Proveïdors amb poques compres "])
 #            if _tipus == "nan":
 #                _tipus = ""
+#            else:
+#                if _tipus == "A":
+#                    _tipus = GLAMSUITE_TIPUS_ABC_A
+#                elif _tipus == "B":
+#                    _tipus = GLAMSUITE_TIPUS_ABC_B
+#                elif _tipus == "C":
+#                    _tipus = GLAMSUITE_TIPUS_ABC_C
+#                else:
+#                    _tipus = ""
 #            _pagaments = str(row["PAGAMENTS (A-B-C)                  A-Condicions de cobrament flexibles                                    B-Condicions de cobrament estàndard                                  C- Cobrament de comptats o terminis immediats"])
 #            if _pagaments == "nan":
 #                _pagaments = ""
+#            else:
+#                if _pagaments == "A":
+#                    _pagaments = GLAMSUITE_PAGAMENTS_ABC_A
+#                elif _pagaments == "B":
+#                    _pagaments = GLAMSUITE_PAGAMENTS_ABC_B
+#                elif _pagaments == "C":
+#                    _pagaments = GLAMSUITE_PAGAMENTS_ABC_C
+#                else:
+#                    _pagaments = ""
 #            _lliurament = str(row["TERMINIS DE LLIURAMENT"])
 #            if _lliurament == "nan":
 #                _lliurament = ""
+#            else:
+#                if _lliurament == "A":
+#                    _lliurament = GLAMSUITE_LLIURAMENT_ABC_A
+#                elif _lliurament == "B":
+#                    _lliurament = GLAMSUITE_LLIURAMENT_ABC_B
+#                elif _lliurament == "C":
+#                    _lliurament = GLAMSUITE_LLIURAMENT_ABC_C
+#                else:
+#                    _lliurament = ""
 #            _preus = str(row["PREUS"])
 #            if _preus == "nan":
 #                _preus = ""
+#            else:
+#                if _preus == "A":
+#                    _preus = GLAMSUITE_PREUS_ABC_A
+#                elif _preus == "B":
+#                    _preus = GLAMSUITE_PREUS_ABC_B
+#                elif _preus == "C":
+#                    _preus = GLAMSUITE_PREUS_ABC_C
+#                else:
+#                    _preus = ""
 #            _familia = str(row["FAMILIA"])
 #            if _familia == "nan":
 #                _familia = ""
@@ -195,37 +364,21 @@ class RabbitPublisherService:
 #            _fabrica = str(row["DISTRIBUIDOR"])
 #            if _fabrica == "nan":
 #                _fabrica = ""
-#            _enviamentComandes = str(row["ENVIAMENT COMANDES"])
-#            if _enviamentComandes == "nan":
-#                _enviamentComandes = ""
-#            _reclamacions = str(row["RECLAMACIONS"])
-#            if _reclamacions == "nan":
-#                _reclamacions = ""
-#            _reclamacionsUrgents = str(row["RECLAMACIONS URGENTS"])
-#            if _reclamacionsUrgents == "nan":
-#                _reclamacionsUrgents = ""
-#            _reclamacionsCritiques = str(row["RECLAMACIONS CRITIQUES"])
-#            if _reclamacionsCritiques == "nan":
-#                _reclamacionsCritiques = ""
 #            _web = str(row["Pàgina web"])
 #            if _web == "nan":
 #                _web = ""
 #    
 #            data={
-#                "queueType": "PROVEIDORS_CAMPSPERSONALITZATS",
+#                "queueType": "PROVEIDORS_CAMPSPERSONALITZATS_TEMP",
 #                "nif": str(_idSupplier).strip(),
-#                "tipus": str(_tipus).strip(), 
-#                "pagaments": str(_pagaments).strip(), 
-#                "lliurament": str(_lliurament).strip(), 
-#                "preus": str(_preus).strip(), 
-#                "familia": str(_familia).strip(), 
-#                "producte": str(_producte).strip(), 
-#                "fabrica": str(_fabrica).strip(), 
-#                "enviamentComandes": str(_enviamentComandes).strip(), 
-#                "reclamacions": str(_reclamacions).strip(), 
-#                "reclamacionsUrgents": str(_reclamacionsUrgents).strip(), 
-#                "reclamacionsCritiques": str(_reclamacionsCritiques).strip(), 
-#                "web": str(_web).strip(),
+#                "Tipus_ABC": str(_tipus).strip(), 
+#                "Pagaments_ABC": str(_pagaments).strip(), 
+#                "Terminis_de_lliurament_ABC": str(_lliurament).strip(), 
+#                "Preus_ABC": str(_preus).strip(), 
+#                "Família": str(_familia).strip(), 
+#                "Producte": str(_producte).strip(), 
+#                "Fàbrica": str(_fabrica).strip(), 
+#                "Web": str(_web).strip(),
 #                "correlationId": "PERSONALITZAT_" + str(_idPersonalitzat).strip()                    
 #            }
 #
@@ -263,7 +416,7 @@ def synchronize_contactesProveidors(dbEmmegi, myCursorEmmegi, now, myCursor):
 
     try:
         # loop over the contacts
-        myCursorEmmegi.execute("SELECT a.email_id as id, a.email, b.cfian, b.denan FROM gfintranet.gfi_prov_emails a, fpsuitedb.anagrafiche b WHERE a.prov_id = b.idAn AND a.activo = 1 AND b.cfian <> '' AND a.email <> '' AND 1=2 ") 
+        myCursorEmmegi.execute("SELECT a.email_id as id, a.email, b.cfian, b.denan FROM gfintranet.gfi_prov_emails a, fpsuitedb.anagrafiche b WHERE a.prov_id = b.idAn AND a.activo = 1 AND b.cfian <> '' AND a.email <> '' ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
@@ -349,7 +502,7 @@ def main():
 
     # INICI CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
     #
-    #
+    # 
     # L'excel ERP-DEFINITIU MACROS.xlsmx s'ha carregat una única vegada. Comento codi perquè no es necessitarà mai més
     #logging.info('   Opening Excel file ERP-DEFINITIU MACROS.xlsmx')
     #
@@ -368,8 +521,8 @@ def main():
     #    disconnectMySQL(db)    
     #    sys.exit(1)                           
     #
-    #synchronize_contactesProveidors(now, myCursor, suppliersExcel)    
-    #synchronize_campsPersonalitzatsProveidors(now, myCursor, suppliersExcel)    
+    #synchronize_contactesProveidors_TEMP(now, myCursor, suppliersExcel)    
+    #synchronize_campsPersonalitzatsProveidors_TEMP(now, myCursor, suppliersExcel)    
     #
     #
     # FINAL CODE OBSOLET (NO TORNAR A ACTIVAR! - ES VA FER UNA EXECUCIÓ ÚNICA EL 27/06/2024) 
