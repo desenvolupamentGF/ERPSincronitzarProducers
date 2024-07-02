@@ -63,8 +63,7 @@ SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
 # Other constants
 CONN_TIMEOUT = 50
-NUM_WEEKLY_WORK_HOURS = 40
-NUM_WEEKS_YEAR = 46 
+NUM_YEARLY_WORK_HOURS = 1750
 
 # TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
@@ -210,7 +209,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     if record[10] is not None:
                         endDate = record[10].strftime("%Y-%m-%dT%H:%M:%SZ")
                     if record[11] is not None:
-                        annualWorkingHours = float((record[11] * NUM_WEEKLY_WORK_HOURS / 100) * NUM_WEEKS_YEAR)
+                        annualWorkingHours = float(record[11] * NUM_YEARLY_WORK_HOURS)
                     if record[12] is not None:                            
                         country_code = record[12]
 
