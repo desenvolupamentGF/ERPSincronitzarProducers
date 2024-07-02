@@ -10,7 +10,7 @@ ENVIRONMENT = 1
 import logging
 
 # to deal with excel files
-import pandas
+#import pandas
 
 # for hash/encrypt reasons
 import hashlib
