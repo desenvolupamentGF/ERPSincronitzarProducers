@@ -182,6 +182,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                      "LEFT JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                      "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
                                      "AND en.FechaBaja IS NULL " \
+                                     "AND en.codigoEmpresa = 1 " \
                                      "AND p.dni = '" + str(dni).strip() + "'"
                                      "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
                 record = myCursorSage.fetchone()   
@@ -226,6 +227,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  SELECT YEAR(fechacobro) AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
                                          "  FROM [GARCIAFAURA].dbo.historico " \
                                          "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  AND codigoEmpresa = 1 " \
                                          "  AND codigoconceptonom NOT IN (838, 839, 840, 862, 963) " \
                                          "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
                                          "  GROUP BY YEAR(fechaCobro) " \
@@ -233,6 +235,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  SELECT YEAR(fechacobro) AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
                                          "  FROM [GARCIAFAURA].dbo.historico " \
                                          "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  AND codigoEmpresa = 1 " \
                                          "  AND codigoconceptonom IN (838, 839, 840, 862, 963) " \
                                          "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
                                          "  GROUP BY YEAR(fechaCobro)) t " \
