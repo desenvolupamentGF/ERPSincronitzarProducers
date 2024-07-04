@@ -79,6 +79,9 @@ def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin
     return erpGFId, hash
 
 # TO BE USED ONLY WHEN COLUMN helper ON TABLE ERPIntegration IS NEEDED !!!
+# Check the following query time to time. It should NOT retrieve any row:
+# select * FROM ERP_GF.ERPIntegration  where deploy=1 and endpoint='Recursos Humans ERP GF' and calltype='/workforces' and helper=''
+# File "Departaments i Workforce.xlsx" includes all the department vs workforce values.
 def get_value_from_database_helper(mycursor, endPoint, origin, correlationId):
     mycursor.execute("SELECT erpGFId, helper FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND deploy = " + str(ENVIRONMENT) + " AND correlationId = '" + str(correlationId).replace("'", "''") + "'")
     myresult = mycursor.fetchall()
