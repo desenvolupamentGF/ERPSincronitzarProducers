@@ -104,6 +104,7 @@ def synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor):
                 "email": str(_email).strip(),
                 "active": str(_active).strip(),
                 "phoneNumber": "93 662 14 41",
+                "changePassword": True,
                 "languageid": GLAMSUITE_DEFAULT_LANGUAGE_CATALA,
                 "roleId": GLAMSUITE_DEFAULT_GUEST_ROLE,
                 "password": str(_email.replace("@garciafaura.com", "")).strip() + "Gf123!",
