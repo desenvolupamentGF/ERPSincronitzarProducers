@@ -271,7 +271,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float(_porcentajeJornada * NUM_YEARLY_WORK_HOURS) / 100,
+                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS) / 100),
                                 "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                                 "correlationId": str(dni).strip()
                             })     
@@ -285,7 +285,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float(_porcentajeJornada * NUM_YEARLY_WORK_HOURS),
+                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS) / 100),
                                 "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                                 "correlationId": str(dni).strip()
                             })     
