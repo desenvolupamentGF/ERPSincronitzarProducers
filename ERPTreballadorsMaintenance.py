@@ -211,7 +211,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  WHERE idEmpleado = '" + idEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
                                          "  AND codigoconceptonom NOT IN (838, 839, 840, 862, 963) " \
-                                         "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
+                                         "  AND YEAR(fechaCobro) <= YEAR(GETDATE()) " \
                                          "  GROUP BY YEAR(fechaCobro) " \
                                          "    UNION " \
                                          "  SELECT YEAR(fechacobro) AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
@@ -219,7 +219,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  WHERE idEmpleado = '" + idEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
                                          "  AND codigoconceptonom IN (838, 839, 840, 862, 963) " \
-                                         "  AND YEAR(fechaCobro) < YEAR(GETDATE()) " \
+                                         "  AND YEAR(fechaCobro) <= YEAR(GETDATE()) " \
                                          "  GROUP BY YEAR(fechaCobro)) t " \
                                          " GROUP BY year " \
                                          "ORDER BY year ")
