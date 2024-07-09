@@ -42,7 +42,6 @@ GLAMSUITE_DEFAULT_ZONE_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_ID']
 GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID']
 GLAMSUITE_DEFAULT_CALENDAR_ID = os.environ['GLAMSUITE_DEFAULT_CALENDAR_ID']
 GLAMSUITE_DEFAULT_ZONE_EPI_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_EPI_ID'] 
-GLAMSUITE_DEFAULT_WORKFORCE_ID = os.environ['GLAMSUITE_DEFAULT_WORKFORCE_ID']
 GLAMSUITE_DEFAULT_TIMETABLE_ID = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID']
 
 # Rabbit constants for messaging
@@ -156,11 +155,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                 country_code = data["country"]
                 iban = data["accountNumber"]
                 costs = {} 
-                contractNumber = ""
-                contractTypeId = 0
-                startDate = ""
-                endDate = ""
-                annualWorkingHours = 0
+                contracts = {} 
 
                 myCursorSage.execute("SELECT en.idEmpleado, " \
                                      "en.codigoEmpleado, " \
@@ -169,20 +164,14 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                      "pd.Municipio, " \
                                      "pd.Provincia, " \
                                      "ec.ibanReceptor, " \
-                                     "c.codigoContrato, " \
-                                     "c.subCodigoContrato, " \
-                                     "en.fechaInicioContrato, " \
-                                     "en.fechaFinalContrato, " \
-                                     "en.porJornada AS porcentajeJornada, " \
                                      "p.SiglaNacion, " \
                                      "p.primerApellidoEmpleado, " \
                                      "p.segundoApellidoEmpleado, " \
                                      "p.nombreEmpleado " \
                                      "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
                                      "INNER JOIN [GARCIAFAURA].dbo.Personas p ON p.SiglaNacion = en.SiglaNacion AND p.Dni = en.Dni " \
-                                     "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios AS pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
+                                     "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
                                      "LEFT JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
-                                     "LEFT JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                      "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
                                      "AND en.FechaBaja IS NULL " \
                                      "AND en.codigoEmpresa = 1 " \
@@ -203,29 +192,19 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         region = record[5].strip()
                     if record[6] is not None:
                         iban = record[6].strip()
-                    if record[7] is not None and record[8] is not None:
-                        contractNumber = (str(record[7]) + "/" + str(record[8])).strip()
-                        contractTypeId = 1 # Contracte indefinit
-                        if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
-                            contractTypeId = 2 # Contracte temporal
-                    if record[9] is not None:
-                        startDate = record[9].strftime("%Y-%m-%dT%H:%M:%SZ")
-                    if record[10] is not None:
-                        endDate = record[10].strftime("%Y-%m-%dT%H:%M:%SZ")
-                    if record[11] is not None:
-                        annualWorkingHours = float(record[11] * NUM_YEARLY_WORK_HOURS)
-                    if record[12] is not None:                            
-                        country_code = record[12]
+                    if record[7] is not None:                            
+                        country_code = record[7]
 
-                    primerApellidoEmpleado = record[13]
-                    segundoApellidoEmpleado = record[14]
-                    nombreEmpleado = record[15]
+                    primerApellidoEmpleado = record[8]
+                    segundoApellidoEmpleado = record[9]
+                    nombreEmpleado = record[10]
                     name = nombreEmpleado.strip()
                     if primerApellidoEmpleado.strip() != "":
                         name = name + ' ' + primerApellidoEmpleado.strip()
                     if segundoApellidoEmpleado.strip() != "":
                         name = name + ' ' + segundoApellidoEmpleado.strip()
 
+                    # Costs per year of the employee
                     myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
                                          "  SELECT YEAR(fechacobro) AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
                                          "  FROM [GARCIAFAURA].dbo.historico " \
@@ -261,6 +240,55 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                             "correlationId": str(dni).strip()
                         }
                     )
+                        
+                    # Contracts of the employee    
+                    myCursorSage.execute("SELECT c.codigoContrato, " \
+                                         "c.subCodigoContrato, " \
+                                         "en.fechaInicioContrato, " \
+                                         "en.fechaFinalContrato, " \
+                                         "en.porJornada " \
+                                         "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
+                                         "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
+                                         "AND en.codigoEmpresa = 1 " \
+                                         "AND en.fechaInicioContrato IS NOT NULL " \
+                                         "AND en.dni = '" + str(dni).strip() + "'")
+
+                    for _codigoContrato, _subCodigoContrato, _fechaInicioContrato, _fechaFinalContrato, _porcentajeJornada in myCursorSage.fetchall():
+                        contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
+                        contractTypeId = 1 # Contracte indefinit
+                        if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
+                            contractTypeId = 2 # Contracte temporal
+
+                        if dni not in contracts:
+                            contracts[dni] = []    
+
+                        if _fechaFinalContrato is None:
+                            contracts[dni].append(
+                            {    
+                                "contractNumber": contractNumber,
+                                "contractTypeId": contractTypeId,
+                                "startDate": _fechaInicioContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "departmentId": str(_dept),
+                                "workforceId": str(_workforce),
+                                "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                "annualWorkingHours": float(_porcentajeJornada * NUM_YEARLY_WORK_HOURS),
+                                "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
+                                "correlationId": str(dni).strip()
+                            })     
+                        else:
+                            contracts[dni].append(
+                            {    
+                                "contractNumber": contractNumber,
+                                "contractTypeId": contractTypeId,
+                                "startDate": _fechaInicioContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "endDate": _fechaFinalContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "departmentId": str(_dept),
+                                "workforceId": str(_workforce),
+                                "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                "annualWorkingHours": float(_porcentajeJornada * NUM_YEARLY_WORK_HOURS),
+                                "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
+                                "correlationId": str(dni).strip()
+                            })     
                 else:
                     logging.error('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
             
@@ -279,32 +307,6 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     continue # if not populated, this worker is not used. Next!
 
                 linkedInProfile = " "
-
-                if endDate == "":
-                    dataContract={
-                        "contractNumber": contractNumber,
-                        "contractTypeId": contractTypeId,
-                        "startDate": startDate,
-                        "departmentId": str(_dept),
-                        "workforceId": str(_workforce),
-                        "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                        "annualWorkingHours": annualWorkingHours,
-                        "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
-                        "correlationId": str(dni).strip()
-                    }     
-                else:
-                    dataContract={
-                        "contractNumber": contractNumber,
-                        "contractTypeId": contractTypeId,
-                        "startDate": startDate,
-                        "endDate": endDate,
-                        "departmentId": str(_dept),
-                        "workforceId": str(_workforce),
-                        "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                        "annualWorkingHours": annualWorkingHours,
-                        "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
-                        "correlationId": str(dni).strip()
-                    }     
 
                 dataLocation={
                     "correlationId": str(dni),
@@ -331,8 +333,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     "linkedInProfile": linkedInProfile,
                     "iban": iban, 
                     "costs": costs.get(dni, []),
+                    "contracts": contracts.get(dni, []),
                     "correlationId": str(dni).strip(),
-                    "dataContract": dataContract,
                     "dataLocation": dataLocation,
                 }
 
