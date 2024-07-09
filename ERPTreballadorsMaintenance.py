@@ -291,6 +291,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                             })     
                 else:
                     logging.error('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
+                    continue # if not found, this worker is not used. Next!
             
                 if address is None:
                     address = " "
@@ -303,8 +304,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                 if iban is None:
                     iban = " "
                 if country_code is None:
-                    logging.error('      Treballador no té país informat. Mirar per què: ' + str(dni).strip() + ' ...') 
-                    continue # if not populated, this worker is not used. Next!
+                    country_code = "ES"
 
                 linkedInProfile = " "
 
