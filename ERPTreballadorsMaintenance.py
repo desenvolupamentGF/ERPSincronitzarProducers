@@ -211,6 +211,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
                                          "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                                         "  AND año < YEAR(GETDATE()) " \
                                          "  GROUP BY año " \
                                          "    UNION " \
                                          "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
@@ -218,6 +219,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
                                          "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                                         "  AND año < YEAR(GETDATE()) " \
                                          "  GROUP BY año) t " \
                                          " GROUP BY year " \
                                          "ORDER BY year ")
