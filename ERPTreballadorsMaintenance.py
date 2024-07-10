@@ -206,19 +206,19 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
                     # Costs per year of the employee
                     myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
-                                         "  SELECT YEAR(fechacobro) AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
-                                         "  FROM [GARCIAFAURA].dbo.historico " \
-                                         "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  SELECT año AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
+                                         "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                                         "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
-                                         "  AND codigoconceptonom NOT IN (838, 839, 840, 862, 963) " \
-                                         "  GROUP BY YEAR(fechaCobro) " \
+                                         "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                                         "  GROUP BY año " \
                                          "    UNION " \
-                                         "  SELECT YEAR(fechacobro) AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
-                                         "  FROM [GARCIAFAURA].dbo.historico " \
-                                         "  WHERE idEmpleado = '" + idEmpleado + "' " \
+                                         "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
+                                         "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                                         "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "  AND codigoEmpresa = 1 " \
-                                         "  AND codigoconceptonom IN (838, 839, 840, 862, 963) " \
-                                         "  GROUP BY YEAR(fechaCobro)) t " \
+                                         "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                                         "  GROUP BY año) t " \
                                          " GROUP BY year " \
                                          "ORDER BY year ")
 
