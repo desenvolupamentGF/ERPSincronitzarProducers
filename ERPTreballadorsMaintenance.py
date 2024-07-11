@@ -205,24 +205,31 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         name = name + ' ' + segundoApellidoEmpleado.strip()
 
                     # Costs per year of the employee
-                    myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
-                                         "  SELECT año AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
-                                         "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
-                                         "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
-                                         "  AND codigoEmpresa = 1 " \
-                                         "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
-                                         "  AND año < YEAR(GETDATE()) " \
-                                         "  GROUP BY año " \
-                                         "    UNION " \
-                                         "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
-                                         "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
-                                         "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
-                                         "  AND codigoEmpresa = 1 " \
-                                         "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
-                                         "  AND año < YEAR(GETDATE()) " \
-                                         "  GROUP BY año) t " \
-                                         " GROUP BY year " \
-                                         "ORDER BY year ")
+                    # myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
+                    #                     "  SELECT año AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
+                    #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                    #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                    #                     "  AND codigoEmpresa = 1 " \
+                    #                     "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                    #                     "  AND año < YEAR(GETDATE()) " \
+                    #                     "  GROUP BY año " \
+                    #                     "    UNION " \
+                    #                     "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
+                    #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                    #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                    #                     "  AND codigoEmpresa = 1 " \
+                    #                     "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                    #                     "  AND año < YEAR(GETDATE()) " \
+                    #                     "  GROUP BY año) t " \
+                    #                     " GROUP BY year " \
+                    #                     "ORDER BY year ")
+                    # Costs per year of the employee
+                    myCursorSage.execute("SELECT año, SUM(baseini) / COUNT(*) AS annualGrossSalary, SUM(baseini) * 30 / 100 / COUNT(*) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
+                                         "FROM [GARCIAFAURA].dbo.HistoricoCalculoRentaD " \
+                                         "WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                                         "AND codigoEmpresa = 1 " \
+                                         "GROUP BY año " \
+                                         "ORDER BY año ")
 
                     for _year, _annualGrossSalary, _annualSocialSecurityContribution, _annualOtherExpenses in myCursorSage.fetchall():
                         if dni not in costs:
