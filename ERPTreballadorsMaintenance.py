@@ -224,7 +224,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     #                     " GROUP BY year " \
                     #                     "ORDER BY year ")
                     # Costs per year of the employee
-                    myCursorSage.execute("SELECT año, SUM(baseini) / COUNT(*) AS annualGrossSalary, SUM(baseini) * 30 / 100 / COUNT(*) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
+                    myCursorSage.execute("SELECT año, ROUND(SUM(baseini) / COUNT(*), 2) AS annualGrossSalary, ROUND(SUM(baseini) * 30 / 100 / COUNT(*), 2) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
                                          "FROM [GARCIAFAURA].dbo.HistoricoCalculoRentaD " \
                                          "WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "AND codigoEmpresa = 1 " \
