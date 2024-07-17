@@ -62,7 +62,10 @@ SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
 # Other constants
 CONN_TIMEOUT = 50
-NUM_YEARLY_WORK_HOURS = 1750
+
+NUM_YEARLY_WORK_HOURS_2024 = 1750
+PORC_SEGURETAT_SOCIAL_2024 = 33
+LIMIT_COST_SEGURETAT_SOCIAL_2024 = 18693.18 
 
 # TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
@@ -224,7 +227,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     #                     " GROUP BY year " \
                     #                     "ORDER BY year ")
                     # Costs per year of the employee
-                    myCursorSage.execute("SELECT año, ROUND(SUM(baseini) / COUNT(*), 2) AS annualGrossSalary, ROUND(SUM(baseini) * 30 / 100 / COUNT(*), 2) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
+                    myCursorSage.execute("SELECT año, ROUND(SUM(baseini) / COUNT(*), 2) AS annualGrossSalary, ROUND(SUM(baseini) * " + str(PORC_SEGURETAT_SOCIAL_2024) + " / 100 / COUNT(*), 2) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
                                          "FROM [GARCIAFAURA].dbo.HistoricoCalculoRentaD " \
                                          "WHERE codigoEmpleado = '" + codEmpleado + "' " \
                                          "AND codigoEmpresa = 1 " \
@@ -237,7 +240,9 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
                         _input = str(_year) + "/12/31"
                         _format = '%Y/%m/%d'    
-                        _datetime = datetime.datetime.strptime(_input, _format)                                        
+                        _datetime = datetime.datetime.strptime(_input, _format)
+                        if _annualSocialSecurityContribution > LIMIT_COST_SEGURETAT_SOCIAL_2024:
+                            _annualSocialSecurityContribution = LIMIT_COST_SEGURETAT_SOCIAL_2024
                         costs[dni].append(
                         {   
                             "date": _datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),   
@@ -278,7 +283,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS) / 100),
+                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
                                 "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                                 "correlationId": str(dni).strip()
                             })     
@@ -292,7 +297,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS) / 100),
+                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
                                 "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
                                 "correlationId": str(dni).strip()
                             })     
