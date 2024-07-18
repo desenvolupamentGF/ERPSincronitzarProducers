@@ -256,16 +256,15 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     # Contracts of the employee    
                     myCursorSage.execute("SELECT c.codigoContrato, " \
                                          "c.subCodigoContrato, " \
-                                         "en.fechaInicioContrato, " \
-                                         "en.fechaFinalContrato, " \
+                                         "en.fechaAlta, " \
+                                         "en.fechaBaja, " \
                                          "en.porJornada " \
                                          "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
                                          "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                          "AND en.codigoEmpresa = 1 " \
-                                         "AND en.fechaInicioContrato IS NOT NULL " \
                                          "AND en.dni = '" + str(dni).strip() + "'")
 
-                    for _codigoContrato, _subCodigoContrato, _fechaInicioContrato, _fechaFinalContrato, _porcentajeJornada in myCursorSage.fetchall():
+                    for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada in myCursorSage.fetchall():
                         contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
                         contractTypeId = 1 # Contracte indefinit
                         if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
@@ -274,12 +273,12 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         if dni not in contracts:
                             contracts[dni] = []    
 
-                        if _fechaFinalContrato is None:
+                        if _fechaBaja is None:
                             contracts[dni].append(
                             {    
                                 "contractNumber": contractNumber,
                                 "contractTypeId": contractTypeId,
-                                "startDate": _fechaInicioContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
@@ -292,8 +291,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                             {    
                                 "contractNumber": contractNumber,
                                 "contractTypeId": contractTypeId,
-                                "startDate": _fechaInicioContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "endDate": _fechaFinalContrato.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "endDate": _fechaBaja.strftime("%Y-%m-%dT%H:%M:%SZ"),
                                 "departmentId": str(_dept),
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
