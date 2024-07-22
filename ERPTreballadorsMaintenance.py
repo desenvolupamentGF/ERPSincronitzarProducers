@@ -46,13 +46,17 @@ GLAMSUITE_DEFAULT_ZONE_EPI_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_EPI_ID']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_8h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_8h']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_6h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_6h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_5dot6h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_5dot6h']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_5h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_5h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_4dot8h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_4dot8h']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_4h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_4h']
 
 GLAMSUITE_DEFAULT_SHIFT_ID_8h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_8h']
 GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h']
 GLAMSUITE_DEFAULT_SHIFT_ID_6h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_6h']
+GLAMSUITE_DEFAULT_SHIFT_ID_5dot6h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_5dot6h']
 GLAMSUITE_DEFAULT_SHIFT_ID_5h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_5h']
+GLAMSUITE_DEFAULT_SHIFT_ID_4dot8h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_4dot8h']
 GLAMSUITE_DEFAULT_SHIFT_ID_4h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_4h']
 
 # Rabbit constants for messaging
@@ -288,9 +292,15 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         if numHorasDia == float(6):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6h
                             shift = GLAMSUITE_DEFAULT_SHIFT_ID_6h
+                        if numHorasDia == float(5.6):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5dot6h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_5dot6h
                         if numHorasDia == float(5):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5h
                             shift = GLAMSUITE_DEFAULT_SHIFT_ID_5h
+                        if numHorasDia == float(4.8):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4dot8h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_4dot8h
                         if numHorasDia == float(4):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4h
                             shift = GLAMSUITE_DEFAULT_SHIFT_ID_4h
