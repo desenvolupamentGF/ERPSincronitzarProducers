@@ -49,6 +49,12 @@ GLAMSUITE_DEFAULT_TIMETABLE_ID_6h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_6
 GLAMSUITE_DEFAULT_TIMETABLE_ID_5h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_5h']
 GLAMSUITE_DEFAULT_TIMETABLE_ID_4h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_4h']
 
+GLAMSUITE_DEFAULT_SHIFT_ID_8h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_8h']
+GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h']
+GLAMSUITE_DEFAULT_SHIFT_ID_6h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_6h']
+GLAMSUITE_DEFAULT_SHIFT_ID_5h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_5h']
+GLAMSUITE_DEFAULT_SHIFT_ID_4h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_4h']
+
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
 RABBIT_PORT = os.environ['RABBIT_PORT']
@@ -272,16 +278,22 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada in myCursorSage.fetchall():
                         numHorasDia = float(8 * _porcentajeJornada / 100) # Num hours a day. Example: if _porcentajeJornada is 75%, then 75% of 8 hours a day is 6 hours a day
                         horario = ""
+                        shift = ""
                         if numHorasDia == float(8):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_8h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_8h
                         if numHorasDia == float(6.5):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h
                         if numHorasDia == float(6):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_6h
                         if numHorasDia == float(5):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_5h
                         if numHorasDia == float(4):
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4h
+                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_4h
                         if horario == "":                        
                             logging.error('      ERROR - Hores per dia no correctes. Mirar per què: ' + str(dni).strip() + ' percentatge: ' + str(_porcentajeJornada) + ' ...') 
                             continue # this contract is not used. Next!            
@@ -307,6 +319,16 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                                 "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
                                 "timetableId": str(horario),
+                                "shifts": [
+                                    {
+                                      "monday": str(shift),
+                                      "tuesday": str(shift),
+                                      "wednesday": str(shift),
+                                      "thursday": str(shift),
+                                      "friday": str(shift),
+                                      "saturday": str(shift),
+                                      "sunday": str(shift)
+                                    }],
                                 "costTypeId": str(typeId),
                                 "correlationId": str(dni).strip()
                             })     
@@ -322,6 +344,16 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                                 "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
                                 "timetableId": str(horario),
+                                "shifts": [
+                                    {
+                                      "monday": str(shift),
+                                      "tuesday": str(shift),
+                                      "wednesday": str(shift),
+                                      "thursday": str(shift),
+                                      "friday": str(shift),
+                                      "saturday": str(shift),
+                                      "sunday": str(shift)
+                                    }],
                                 "costTypeId": str(typeId),
                                 "correlationId": str(dni).strip()
                             })     
