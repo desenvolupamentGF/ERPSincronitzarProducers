@@ -42,7 +42,12 @@ GLAMSUITE_DEFAULT_ZONE_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_ID']
 GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID']
 GLAMSUITE_DEFAULT_CALENDAR_ID = os.environ['GLAMSUITE_DEFAULT_CALENDAR_ID']
 GLAMSUITE_DEFAULT_ZONE_EPI_ID = os.environ['GLAMSUITE_DEFAULT_ZONE_EPI_ID'] 
-GLAMSUITE_DEFAULT_TIMETABLE_ID = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID']
+
+GLAMSUITE_DEFAULT_TIMETABLE_ID_8h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_8h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_6h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_6h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_5h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_5h']
+GLAMSUITE_DEFAULT_TIMETABLE_ID_4h = os.environ['GLAMSUITE_DEFAULT_TIMETABLE_ID_4h']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -265,6 +270,24 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "AND en.dni = '" + str(dni).strip() + "'")
 
                     for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada in myCursorSage.fetchall():
+                        numHorasDia = float(8 * _porcentajeJornada / 100) # Num hours a day. Example: if _porcentajeJornada is 75%, then 75% of 8 hours a day is 6 hours a day
+                        horario = ""
+                        if numHorasDia == float(8):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_8h
+                        if numHorasDia == float(6.5):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h
+                        if numHorasDia == float(6):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6h
+                        if numHorasDia == float(5):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5h
+                        if numHorasDia == float(4):
+                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4h
+                        if horario == "":                        
+                            logging.error('      ERROR - Hores per dia no correctes. Mirar per què: ' + str(dni).strip() + ' percentatge: ' + str(_porcentajeJornada) + ' ...') 
+                            continue # this contract is not used. Next!            
+
+                        typeId = 1 # FELIX TODO TO-DO
+
                         contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
                         contractTypeId = 1 # Contracte indefinit
                         if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
@@ -283,7 +306,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                                 "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
-                                "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
+                                "timetableId": str(horario),
+                                "costTypeId": str(typeId),
                                 "correlationId": str(dni).strip()
                             })     
                         else:
@@ -297,7 +321,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "workforceId": str(_workforce),
                                 "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
                                 "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
-                                "timetableId": GLAMSUITE_DEFAULT_TIMETABLE_ID,
+                                "timetableId": str(horario),
+                                "costTypeId": str(typeId),
                                 "correlationId": str(dni).strip()
                             })     
                 else:
