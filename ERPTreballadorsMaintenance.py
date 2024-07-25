@@ -32,6 +32,7 @@ URL_WORKERS = '/workers'
 
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_EMPLOYEES_SESAME = "/core/v3/employees"
+URL_ABSENCES_SESAME = "/schedule/v1/absence-day-off"
 URL_API_SESAME = os.environ['URL_API_SESAME']
 TOKEN_API_SESAME = os.environ['TOKEN_API_SESAME']
 
@@ -158,6 +159,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     logging.error('Worker without jobChargeName populated: ' + data["nid"])
                     continue # if not populated, this worker is not used. Next!
                 else:
+                    if data["nid"] == '33491473T':
+                        aaa=444
                     # We need to get the department name using the workforce.
                     glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', _workforce)
                     if glam_id is None: 
@@ -273,13 +276,14 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "c.subCodigoContrato, " \
                                          "en.fechaAlta, " \
                                          "en.fechaBaja, " \
-                                         "en.porJornada " \
+                                         "en.porJornada, " \
+                                         "en.codigoDepartamento " \                                         
                                          "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
                                          "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                          "AND en.codigoEmpresa = 1 " \
                                          "AND en.dni = '" + str(dni).strip() + "'")
 
-                    for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada in myCursorSage.fetchall():
+                    for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada, _codigoDepartamento in myCursorSage.fetchall():
                         numHorasDia = float(8 * _porcentajeJornada / 100) # Num hours a day. Example: if _porcentajeJornada is 75%, then 75% of 8 hours a day is 6 hours a day
                         horario = ""
                         shift = ""
@@ -308,7 +312,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                             logging.error('      ERROR - Hores per dia no correctes. Mirar per què: ' + str(dni).strip() + ' percentatge: ' + str(_porcentajeJornada) + ' ...') 
                             continue # this contract is not used. Next!            
 
-                        typeId = 1 # FELIX TODO TO-DO
+                        costTypeId = _codigoDepartamento
 
                         contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
                         contractTypeId = 1 # Contracte indefinit
@@ -339,7 +343,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                       "saturday": str(shift),
                                       "sunday": str(shift)
                                     }],
-                                "costTypeId": str(typeId),
+                                "costTypeId": str(costTypeId),
                                 "correlationId": str(dni).strip()
                             })     
                         else:
@@ -364,7 +368,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                       "saturday": str(shift),
                                       "sunday": str(shift)
                                     }],
-                                "costTypeId": str(typeId),
+                                "costTypeId": str(costTypeId),
                                 "correlationId": str(dni).strip()
                             })     
                 else:
@@ -450,6 +454,82 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
+def synchronize_absences(dbSage, myCursorSage, now, myCursor):
+    logging.info('   Processing absences from origin ERP (Sesame)')
+
+    # processing absences from origin ERP (Sesame)
+    try:
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        endProcess = False
+        page = 1        
+        while not endProcess:
+
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
+                "Content-Type": "application/json"
+            }
+            strFrom = datetime.date.today() - datetime.timedelta(365) # Darrer any
+            get_req = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page) + "&from=" + str(strFrom), headers=headers,
+                                   verify=False, timeout=CONN_TIMEOUT)
+            response = get_req.json()
+
+            for data in response["data"]:
+
+                id = data["id"]
+                workerId = data["employee"]["id"]
+                date = data["date"]
+                nonWorkingReasonId = data["calendar"]["absenceType"]["id"]
+                timetableId = ""
+                shiftId = ""
+                  
+                data={
+                    "queueType": "TREBALLADORS_ABSENCES",
+                    "workerId": str(workerId).strip(),
+                    "date": str(date).strip(),
+                    "nonWorkingReasonId": str(nonWorkingReasonId).strip(),
+                    "timetableId": str(timetableId).strip(),
+                    "shiftId": str(shiftId).strip(),
+                    "correlationId": str(id).strip(),
+                }
+
+                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                glam_id, old_data_hash = get_value_from_database(myCursor, str(id).strip(), URL_WORKERS, "Treballadors ERP GF", "Sesame")
+
+                if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                    logging.info('      Processing absence ' + str(id).strip() + ' de data ' + str(date).strip() + ' ...') 
+
+                    # Sending message to queue
+                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                    j += 1
+
+                i += 1
+                if i % 1000 == 0:
+                    logging.info('      ' + str(i) + ' synchronized absences...')   
+
+            meta = response["meta"]
+            if str(meta["lastPage"]) == str(page):
+                endProcess = True
+            else:
+                page = page + 1
+
+        logging.info('      Total synchronized absences: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        logging.error('   Unexpected error when processing absences from original ERP (Sesame): ' + str(e))
+        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectSQLServer(dbSage)
+        sys.exit(1)
+
 def main():
 
     executionResult = "OK"
@@ -486,6 +566,7 @@ def main():
         sys.exit(1)
 
     synchronize_workers(dbSage, myCursorSage, now, myCursor)    
+    #synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
