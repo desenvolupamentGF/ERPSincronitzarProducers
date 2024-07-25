@@ -277,7 +277,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                          "en.fechaAlta, " \
                                          "en.fechaBaja, " \
                                          "en.porJornada, " \
-                                         "en.codigoDepartamento " \                                         
+                                         "en.codigoDepartamento " \
                                          "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
                                          "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                          "AND en.codigoEmpresa = 1 " \
