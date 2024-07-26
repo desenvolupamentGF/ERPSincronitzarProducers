@@ -313,8 +313,9 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                             continue # this contract is not used. Next!            
 
                         costTypeId = _codigoDepartamento
-                        if str(costTypeId) != str(1) and str(costTypeId) != str(2):
-                            logging.error('      ERROR - CostTypeId incorrecte. Mirar per què: ' + str(dni).strip() + ' costTypeId: ' + str(costTypeId) + ' ...') 
+                        if _fechaBaja is None:
+                            if str(costTypeId) != str(1) and str(costTypeId) != str(2):
+                                logging.error('      ERROR - CostTypeId incorrecte. Mirar per què: ' + str(dni).strip() + ' costTypeId: ' + str(costTypeId) + ' ...') 
 
                         contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
                         contractTypeId = 1 # Contracte indefinit
