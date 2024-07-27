@@ -488,7 +488,31 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                 nonWorkingReasonId = data["calendar"]["absenceType"]["id"]
                 timetableId = ""
                 shiftId = ""
-                  
+
+                strNonWorkingReasonId = ""
+                if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0":
+                    strNonWorkingReasonId = "4"
+                elif nonWorkingReasonId == "1628becd-12ec-4428-bf95-46bdbc20cdb2":
+                    strNonWorkingReasonId = "11"
+                elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da":
+                    strNonWorkingReasonId = "8"
+                elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee":
+                    strNonWorkingReasonId = "10"
+                elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166":
+                    strNonWorkingReasonId = "6"
+                elif nonWorkingReasonId == "7ce28898-ba8c-4823-a00b-551c421004f6":
+                    strNonWorkingReasonId = "11"
+                elif nonWorkingReasonId == "8d2be1c2-108a-402e-b201-02c977462ef5":
+                    strNonWorkingReasonId = "7"
+                elif nonWorkingReasonId == "91ab9ab0-9c8e-4310-887b-2a2c8574fbb6":
+                    strNonWorkingReasonId = "10"
+                elif nonWorkingReasonId == "b37b82e7-c934-4d29-8433-6991a40e2e06":
+                    strNonWorkingReasonId = "9"
+                elif nonWorkingReasonId == "c95f6936-e71c-45ec-8491-c911a2f8fd4b":
+                    strNonWorkingReasonId = "10"
+                elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
+                    strNonWorkingReasonId = "4"
+
                 data={
                     "queueType": "TREBALLADORS_ABSENCES",
                     "workerId": str(workerId).strip(),
@@ -569,7 +593,7 @@ def main():
         sys.exit(1)
 
     synchronize_workers(dbSage, myCursorSage, now, myCursor)    
-    #synchronize_absences(dbSage, myCursorSage, now, myCursor)    
+    synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
