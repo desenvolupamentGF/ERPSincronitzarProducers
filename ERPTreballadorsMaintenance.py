@@ -1,7 +1,7 @@
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
-ENVIRONMENT = 0
+ENVIRONMENT = 1
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
@@ -596,7 +596,7 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    #synchronize_workers(dbSage, myCursorSage, now, myCursor)    
+    synchronize_workers(dbSage, myCursorSage, now, myCursor)    
     synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
