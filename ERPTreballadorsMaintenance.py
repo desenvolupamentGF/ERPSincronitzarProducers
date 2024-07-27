@@ -512,12 +512,15 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                     strNonWorkingReasonId = "10"
                 elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
                     strNonWorkingReasonId = "4"
-
+                if strNonWorkingReasonId == "":
+                    logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Worker: ' + str(workerId).strip() + ', reason: ' + str(nonWorkingReasonId) + ' ...') 
+                    continue # if not found, this worker is not used. Next!
+            
                 data={
                     "queueType": "TREBALLADORS_ABSENCES",
                     "workerId": str(workerId).strip(),
                     "date": str(date).strip(),
-                    "nonWorkingReasonId": str(nonWorkingReasonId).strip(),
+                    "nonWorkingReasonId": str(strNonWorkingReasonId).strip(),
                     "timetableId": str(timetableId).strip(),
                     "shiftId": str(shiftId).strip(),
                     "correlationId": str(id).strip(),
