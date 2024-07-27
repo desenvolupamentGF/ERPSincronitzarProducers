@@ -1,7 +1,7 @@
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
-ENVIRONMENT = 1
+ENVIRONMENT = 0
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
@@ -486,6 +486,7 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                 workerId = data["employee"]["id"]
                 date = data["date"]
                 nonWorkingReasonId = data["calendar"]["absenceType"]["id"]
+                nonWorkingReasonName = data["calendar"]["absenceType"]["name"]
                 timetableId = ""
                 shiftId = ""
 
@@ -513,7 +514,7 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                 elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
                     strNonWorkingReasonId = "4"
                 if strNonWorkingReasonId == "":
-                    logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Worker: ' + str(workerId).strip() + ', reason: ' + str(nonWorkingReasonId) + ' ...') 
+                    logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Worker: ' + str(workerId).strip() + ', reason: ' + str(nonWorkingReasonName) + ' ...') 
                     continue # if not found, this worker is not used. Next!
             
                 data={
@@ -595,7 +596,7 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_workers(dbSage, myCursorSage, now, myCursor)    
+    #synchronize_workers(dbSage, myCursorSage, now, myCursor)    
     synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
