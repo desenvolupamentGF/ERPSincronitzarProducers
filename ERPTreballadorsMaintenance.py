@@ -597,7 +597,7 @@ def main():
         sys.exit(1)
 
     synchronize_workers(dbSage, myCursorSage, now, myCursor)    
-    synchronize_absences(dbSage, myCursorSage, now, myCursor)    
+    #synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
