@@ -487,8 +487,8 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                 date = data["date"]
                 nonWorkingReasonId = data["calendar"]["absenceType"]["id"]
                 nonWorkingReasonName = data["calendar"]["absenceType"]["name"]
-                timetableId = ""
-                shiftId = ""
+                timetableId = None
+                shiftId = None
 
                 strNonWorkingReasonId = ""
                 if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0":
@@ -522,8 +522,8 @@ def synchronize_absences(dbSage, myCursorSage, now, myCursor):
                     "workerId": str(workerId).strip(),
                     "date": str(date).strip(),
                     "nonWorkingReasonId": str(strNonWorkingReasonId).strip(),
-                    "timetableId": str(timetableId).strip(),
-                    "shiftId": str(shiftId).strip(),
+                    "timetableId": timetableId,
+                    "shiftId": shiftId,
                     "correlationId": str(id).strip(),
                 }
 
