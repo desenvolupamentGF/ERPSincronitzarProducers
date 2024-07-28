@@ -139,44 +139,47 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
         i = 0
         j = 0
-        endProcess = False
-        page = 1        
-        while not endProcess:
+        endProcess1 = False
+        page1 = 1        
+        while not endProcess1:
 
             headers = {
                 "Authorization": "Bearer " + TOKEN_API_SESAME, 
                 "Content-Type": "application/json"
             }
 
-            get_req = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page), headers=headers,
-                                   verify=False, timeout=CONN_TIMEOUT)
-            response = get_req.json()
+            get_req1 = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page1), headers=headers,
+                                    verify=False, timeout=CONN_TIMEOUT)
+            response1 = get_req1.json()
 
-            for data in response["data"]:
+            for data1 in response1["data"]:
 
-                _workforce = data["jobChargeName"]
+                name = data1["firstName"] + " " + data1["lastName"]
+                dni = data1["nid"]
+
+                logging.info('   Worker is: ' + str(name) + ' with dni: ' + str(dni))
+
+                _workforce = data1["jobChargeName"]
                 if _workforce is None:
-                    logging.error('Worker without jobChargeName populated: ' + data["nid"])
+                    logging.error('Worker without jobChargeName populated: ' + data1["nid"])
                     continue # if not populated, this worker is not used. Next!
                 else:
-                    if data["nid"] == '33491473T':
-                        aaa=444
                     # We need to get the department name using the workforce.
                     glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', _workforce)
                     if glam_id is None: 
                         logging.warning('Workforce not found on the correlationId column of ERPIntegration: ' + str(_workforce))
                         continue # if not found, this worker is not used. Next!
 
-                dni = data["nid"]
-                name = data["firstName"] + " " + data["lastName"]
-                address = data["address"]
-                postalCode = data["postalCode"]
-                city = data["city"]
-                region = data["province"]
-                country_code = data["country"]
-                iban = data["accountNumber"]
+                workerId = data1["id"]
+                address = data1["address"]
+                postalCode = data1["postalCode"]
+                city = data1["city"]
+                region = data1["province"]
+                country_code = data1["country"]
+                iban = data1["accountNumber"]
                 costs = {} 
                 contracts = {} 
+                absences = {}
 
                 myCursorSage.execute("SELECT en.idEmpleado, " \
                                      "en.codigoEmpleado, " \
@@ -403,6 +406,68 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     "preferential": False
                 }                             
 
+                page2 = 1
+                endProcess2 = False
+                while not endProcess2:
+
+                    strFrom = datetime.date.today() - datetime.timedelta(365) # Darrer any
+                    get_req2 = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page2) + "&employeeIds=" + str(workerId) + "&from=" + str(strFrom), headers=headers,
+                                            verify=False, timeout=CONN_TIMEOUT)
+                    response2 = get_req2.json()
+
+                    for data2 in response2["data"]:
+
+                        date = str(data2["date"]) + "T00:00:00"
+                        nonWorkingReasonId = data2["calendar"]["absenceType"]["id"]
+                        nonWorkingReasonName = data2["calendar"]["absenceType"]["name"]
+                        timetableId = None
+                        shiftId = None
+
+                        strNonWorkingReasonId = ""
+                        if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0":
+                            strNonWorkingReasonId = "4"
+                        elif nonWorkingReasonId == "1628becd-12ec-4428-bf95-46bdbc20cdb2":
+                            strNonWorkingReasonId = "11"
+                        elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da":
+                            strNonWorkingReasonId = "8"
+                        elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee":
+                            strNonWorkingReasonId = "10"
+                        elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166":
+                            strNonWorkingReasonId = "6"
+                        elif nonWorkingReasonId == "7ce28898-ba8c-4823-a00b-551c421004f6":
+                            strNonWorkingReasonId = "11"
+                        elif nonWorkingReasonId == "8d2be1c2-108a-402e-b201-02c977462ef5":
+                            strNonWorkingReasonId = "7"
+                        elif nonWorkingReasonId == "91ab9ab0-9c8e-4310-887b-2a2c8574fbb6":
+                            strNonWorkingReasonId = "10"
+                        elif nonWorkingReasonId == "b37b82e7-c934-4d29-8433-6991a40e2e06":
+                            strNonWorkingReasonId = "9"
+                        elif nonWorkingReasonId == "c95f6936-e71c-45ec-8491-c911a2f8fd4b":
+                            strNonWorkingReasonId = "10"
+                        elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
+                            strNonWorkingReasonId = "4"
+                        if strNonWorkingReasonId == "":
+                            logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Reason: ' + str(nonWorkingReasonName) + ' ...') 
+                            continue # if not found, this worker is not used. Next!
+
+                        if dni not in absences:
+                            absences[dni] = []    
+
+                        absences[dni].append(
+                        {   
+                            "date": str(date).strip(),
+                            "nonWorkingReasonId": str(strNonWorkingReasonId).strip(),
+                            "timetableId": timetableId,
+                            "shiftId": shiftId,
+                            "correlationId": str(dni).strip()
+                        })
+
+                    meta2 = response2["meta"]
+                    if str(meta2["lastPage"]) == str(page2):
+                        endProcess2 = True
+                    else:
+                        page2 = page2 + 1
+
                 data={
                     "queueType": "TREBALLADORS_TREBALLADORS",
                     "name": str(name).strip(),
@@ -419,6 +484,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                     "iban": iban, 
                     "costs": costs.get(dni, []),
                     "contracts": contracts.get(dni, []),
+                    "absences": absences.get(dni, []),
                     "correlationId": str(dni).strip(),
                     "dataLocation": dataLocation,
                 }
@@ -440,11 +506,11 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                 if i % 1000 == 0:
                     logging.info('      ' + str(i) + ' synchronized workers...')   
 
-            meta = response["meta"]
-            if str(meta["lastPage"]) == str(page):
-                endProcess = True
+            meta1 = response1["meta"]
+            if str(meta1["lastPage"]) == str(page1):
+                endProcess1 = True
             else:
-                page = page + 1
+                page1 = page1 + 1
 
         logging.info('      Total synchronized workers: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
@@ -453,110 +519,6 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
     except Exception as e:
         logging.error('   Unexpected error when processing workers from original ERP (Sesame/Sage): ' + str(e))
-        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectSQLServer(dbSage)
-        sys.exit(1)
-
-def synchronize_absences(dbSage, myCursorSage, now, myCursor):
-    logging.info('   Processing absences from origin ERP (Sesame)')
-
-    # processing absences from origin ERP (Sesame)
-    try:
-        # Preparing message queue
-        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
-
-        i = 0
-        j = 0
-        endProcess = False
-        page = 1        
-        while not endProcess:
-
-            headers = {
-                "Authorization": "Bearer " + TOKEN_API_SESAME, 
-                "Content-Type": "application/json"
-            }
-            strFrom = datetime.date.today() - datetime.timedelta(365) # Darrer any
-            get_req = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page) + "&from=" + str(strFrom), headers=headers,
-                                   verify=False, timeout=CONN_TIMEOUT)
-            response = get_req.json()
-
-            for data in response["data"]:
-
-                id = data["id"]
-                workerId = data["employee"]["id"]
-                date = data["date"]
-                nonWorkingReasonId = data["calendar"]["absenceType"]["id"]
-                nonWorkingReasonName = data["calendar"]["absenceType"]["name"]
-                timetableId = None
-                shiftId = None
-
-                strNonWorkingReasonId = ""
-                if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0":
-                    strNonWorkingReasonId = "4"
-                elif nonWorkingReasonId == "1628becd-12ec-4428-bf95-46bdbc20cdb2":
-                    strNonWorkingReasonId = "11"
-                elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da":
-                    strNonWorkingReasonId = "8"
-                elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee":
-                    strNonWorkingReasonId = "10"
-                elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166":
-                    strNonWorkingReasonId = "6"
-                elif nonWorkingReasonId == "7ce28898-ba8c-4823-a00b-551c421004f6":
-                    strNonWorkingReasonId = "11"
-                elif nonWorkingReasonId == "8d2be1c2-108a-402e-b201-02c977462ef5":
-                    strNonWorkingReasonId = "7"
-                elif nonWorkingReasonId == "91ab9ab0-9c8e-4310-887b-2a2c8574fbb6":
-                    strNonWorkingReasonId = "10"
-                elif nonWorkingReasonId == "b37b82e7-c934-4d29-8433-6991a40e2e06":
-                    strNonWorkingReasonId = "9"
-                elif nonWorkingReasonId == "c95f6936-e71c-45ec-8491-c911a2f8fd4b":
-                    strNonWorkingReasonId = "10"
-                elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
-                    strNonWorkingReasonId = "4"
-                if strNonWorkingReasonId == "":
-                    logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Worker: ' + str(workerId).strip() + ', reason: ' + str(nonWorkingReasonName) + ' ...') 
-                    continue # if not found, this worker is not used. Next!
-            
-                data={
-                    "queueType": "TREBALLADORS_ABSENCES",
-                    "workerId": str(workerId).strip(),
-                    "date": str(date).strip(),
-                    "nonWorkingReasonId": str(strNonWorkingReasonId).strip(),
-                    "timetableId": timetableId,
-                    "shiftId": shiftId,
-                    "correlationId": str(id).strip(),
-                }
-
-                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursor, str(id).strip(), URL_WORKERS, "Treballadors ERP GF", "Sesame")
-
-                if glam_id is None or str(old_data_hash) != str(data_hash):
-
-                    logging.info('      Processing absence ' + str(id).strip() + ' de data ' + str(date).strip() + ' ...') 
-
-                    # Sending message to queue
-                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
-
-                    j += 1
-
-                i += 1
-                if i % 1000 == 0:
-                    logging.info('      ' + str(i) + ' synchronized absences...')   
-
-            meta = response["meta"]
-            if str(meta["lastPage"]) == str(page):
-                endProcess = True
-            else:
-                page = page + 1
-
-        logging.info('      Total synchronized absences: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
-
-        # Closing queue
-        myRabbitPublisherService.close()
-
-    except Exception as e:
-        logging.error('   Unexpected error when processing absences from original ERP (Sesame): ' + str(e))
         send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectSQLServer(dbSage)
         sys.exit(1)
@@ -597,7 +559,6 @@ def main():
         sys.exit(1)
 
     synchronize_workers(dbSage, myCursorSage, now, myCursor)    
-    #synchronize_absences(dbSage, myCursorSage, now, myCursor)    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
