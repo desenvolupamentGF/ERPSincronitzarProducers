@@ -346,8 +346,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                       "wednesday": str(shift),
                                       "thursday": str(shift),
                                       "friday": str(shift),
-                                      "saturday": str(shift),
-                                      "sunday": str(shift)
+                                      "saturday": None,
+                                      "sunday": None
                                     }],
                                 "costTypeId": str(costTypeId),
                                 "correlationId": str(dni).strip()
@@ -371,8 +371,8 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                       "wednesday": str(shift),
                                       "thursday": str(shift),
                                       "friday": str(shift),
-                                      "saturday": str(shift),
-                                      "sunday": str(shift)
+                                      "saturday": None,
+                                      "sunday": None
                                     }],
                                 "costTypeId": str(costTypeId),
                                 "correlationId": str(dni).strip()
