@@ -424,28 +424,28 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                         shiftId = None
 
                         strNonWorkingReasonId = ""
-                        if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0":
-                            strNonWorkingReasonId = "4"
-                        elif nonWorkingReasonId == "1628becd-12ec-4428-bf95-46bdbc20cdb2":
-                            strNonWorkingReasonId = "11"
-                        elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da":
-                            strNonWorkingReasonId = "8"
-                        elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee":
-                            strNonWorkingReasonId = "10"
-                        elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166":
-                            strNonWorkingReasonId = "6"
-                        elif nonWorkingReasonId == "7ce28898-ba8c-4823-a00b-551c421004f6":
-                            strNonWorkingReasonId = "11"
-                        elif nonWorkingReasonId == "8d2be1c2-108a-402e-b201-02c977462ef5":
-                            strNonWorkingReasonId = "7"
-                        elif nonWorkingReasonId == "91ab9ab0-9c8e-4310-887b-2a2c8574fbb6":
-                            strNonWorkingReasonId = "10"
-                        elif nonWorkingReasonId == "b37b82e7-c934-4d29-8433-6991a40e2e06":
-                            strNonWorkingReasonId = "9"
-                        elif nonWorkingReasonId == "c95f6936-e71c-45ec-8491-c911a2f8fd4b":
-                            strNonWorkingReasonId = "10"
-                        elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10":
-                            strNonWorkingReasonId = "4"
+                        if nonWorkingReasonId == "14f7617f-5378-4b7d-97cb-a6e716c8edd0": # "Vacances pendent de l'any anterior" 
+                            strNonWorkingReasonId = "4" # Holiday
+                        elif nonWorkingReasonId == "1628becd-12ec-4428-bf95-46bdbc20cdb2": # "Ausencia en horas"
+                            strNonWorkingReasonId = "11" # Absenteeism
+                        elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da": # "Permiso por Maternidad/Paternidad"
+                            strNonWorkingReasonId = "8" # MaternityOrPaternity
+                        elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee": # "Mudanza"
+                            strNonWorkingReasonId = "10" # PaidLeave 
+                        elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166": # "Baixa per malaltia"
+                            strNonWorkingReasonId = "6" # Illness
+                        elif nonWorkingReasonId == "7ce28898-ba8c-4823-a00b-551c421004f6": # "Absentismo"
+                            strNonWorkingReasonId = "11" # Absenteeism
+                        elif nonWorkingReasonId == "8d2be1c2-108a-402e-b201-02c977462ef5": # "Baixa per accident laboral"
+                            strNonWorkingReasonId = "7" # Accident
+                        elif nonWorkingReasonId == "91ab9ab0-9c8e-4310-887b-2a2c8574fbb6": # "Permiso Retribuido Horas"
+                            strNonWorkingReasonId = "10" # PaidLeave 
+                        elif nonWorkingReasonId == "b37b82e7-c934-4d29-8433-6991a40e2e06": # "Permís per matrimoni"
+                            strNonWorkingReasonId = "9" # Marriage
+                        elif nonWorkingReasonId == "c95f6936-e71c-45ec-8491-c911a2f8fd4b": # "Permiso Retribuido Días"
+                            strNonWorkingReasonId = "10" # PaidLeave 
+                        elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10": # "Vacances a compte any proximo"
+                            strNonWorkingReasonId = "4" # Holiday
                         if strNonWorkingReasonId == "":
                             logging.error('      ERROR - NotWorkingReason incorrecte. Mirar per què. Reason: ' + str(nonWorkingReasonName) + ' ...') 
                             continue # if not found, this worker is not used. Next!
