@@ -129,8 +129,8 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_workers(dbSage, myCursorSage, now, myCursor):
-    logging.info('   Processing workers from origin ERP (Sesame/Sage)')
+def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
+    logging.info('   Processing workers from origin ERP (Sesame/Sage) --> ActiveWorked: ' + str(activeWorker))
 
     # processing workers from origin ERP (Sesame)
     try:
@@ -141,6 +141,11 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
         j = 0
         endProcess1 = False
         page1 = 1        
+
+        status = "&status=active"
+        if activeWorker == 0:
+            status = "&status=inactive"
+
         while not endProcess1:
 
             headers = {
@@ -148,7 +153,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                 "Content-Type": "application/json"
             }
 
-            get_req1 = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page1), headers=headers,
+            get_req1 = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page1) + status, headers=headers,
                                     verify=False, timeout=CONN_TIMEOUT)
             response1 = get_req1.json()
 
@@ -561,7 +566,8 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_workers(dbSage, myCursorSage, now, myCursor)    
+    synchronize_workers(dbSage, myCursorSage, now, myCursor, 1) # Active workers    
+    synchronize_workers(dbSage, myCursorSage, now, myCursor, 0) # Non active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
