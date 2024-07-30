@@ -417,7 +417,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                 endProcess2 = False
                 while not endProcess2:
 
-                    strFrom = datetime.date.today() - datetime.timedelta(365) # Darrer any
+                    strFrom = datetime.date.today() - datetime.timedelta(90) # Darrers tres mesos
                     get_req2 = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page2) + "&employeeIds=" + str(workerId) + "&from=" + str(strFrom), headers=headers,
                                             verify=False, timeout=CONN_TIMEOUT)
                     response2 = get_req2.json()
