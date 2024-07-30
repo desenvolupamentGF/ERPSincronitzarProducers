@@ -214,6 +214,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
             
                 if record is not None:           
                     codEmpleado = str(record[0]).strip()
+                    code = codEmpleado
                     if record[1] is not None:
                         address = record[1].strip()
                     if record[2] is not None:
