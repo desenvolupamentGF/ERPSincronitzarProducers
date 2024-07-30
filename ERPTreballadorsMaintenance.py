@@ -153,7 +153,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                 "Content-Type": "application/json"
             }
 
-            get_req1 = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page1) + status, headers=headers,
+            get_req1 = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page1) + str(status), headers=headers,
                                     verify=False, timeout=CONN_TIMEOUT)
             response1 = get_req1.json()
 
@@ -161,6 +161,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
 
                 name = data1["firstName"] + " " + data1["lastName"]
                 dni = data1["nid"]
+                code = data1["code"]
 
                 if dni == '':
                     logging.error('      Treballador no té DNI: ' + str(name).strip() + ' ...') 
@@ -190,8 +191,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                 contracts = {} 
                 absences = {}
 
-                myCursorSage.execute("SELECT en.idEmpleado, " \
-                                     "en.codigoEmpleado, " \
+                myCursorSage.execute("SELECT en.codigoEmpleado, " \
                                      "RTRIM(pd.CodigoSigla + ' ' + LTRIM(pd.ViaPublica + ' ') + LTRIM(pd.Numero1 + ' ') + LTRIM(pd.Numero2 + ' ') + LTRIM(pd.Escalera + ' ') + LTRIM(pd.Piso + ' ') + LTRIM(pd.Puerta + ' ') + LTRIM(pd.Letra)) AS direccion, " \
                                      "pd.CodigoPostal, " \
                                      "pd.Municipio, " \
@@ -213,24 +213,23 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                 record = myCursorSage.fetchone()   
             
                 if record is not None:           
-                    idEmpleado = str(record[0]).strip()
-                    codEmpleado = str(record[1]).strip()
+                    codEmpleado = str(record[0]).strip()
+                    if record[1] is not None:
+                        address = record[1].strip()
                     if record[2] is not None:
-                        address = record[2].strip()
+                        postalCode = record[2].strip()
                     if record[3] is not None:
-                        postalCode = record[3].strip()
+                        city = record[3].strip()
                     if record[4] is not None:
-                        city = record[4].strip()
+                        region = record[4].strip()
                     if record[5] is not None:
-                        region = record[5].strip()
-                    if record[6] is not None:
-                        iban = record[6].strip()
-                    if record[7] is not None:                            
-                        country_code = record[7]
+                        iban = record[5].strip()
+                    if record[6] is not None:                            
+                        country_code = record[6]
 
-                    primerApellidoEmpleado = record[8]
-                    segundoApellidoEmpleado = record[9]
-                    nombreEmpleado = record[10]
+                    primerApellidoEmpleado = record[7]
+                    segundoApellidoEmpleado = record[8]
+                    nombreEmpleado = record[9]
                     name = nombreEmpleado.strip()
                     if primerApellidoEmpleado.strip() != "":
                         name = name + ' ' + primerApellidoEmpleado.strip()
@@ -408,9 +407,9 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                     "correlationId": str(dni),
                     "zoneId": str(GLAMSUITE_DEFAULT_ZONE_EPI_ID),
                     "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID),
-                    "containerCode": "EPI" + str(codEmpleado).strip(),
+                    "containerCode": "EPI" + str(code).strip(),
                     "description": str(name).strip(),
-                    "position": str(codEmpleado).strip(),
+                    "position": str(code).strip(),
                     "preferential": False
                 }                             
 
