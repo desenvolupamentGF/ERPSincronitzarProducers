@@ -157,6 +157,10 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                 name = data1["firstName"] + " " + data1["lastName"]
                 dni = data1["nid"]
 
+                if dni == '':
+                    logging.error('      Treballador no té DNI: ' + str(name).strip() + ' ...') 
+                    continue # if not found, this worker is not used. Next!
+
                 logging.info('   Worker is: ' + str(name) + ' with dni: ' + str(dni))
 
                 _workforce = data1["jobChargeName"]
@@ -378,8 +382,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
                                 "correlationId": str(dni).strip()
                             })     
                 else:
-                    logging.error('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
-                    continue # if not found, this worker is not used. Next!
+                    logging.warning('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
             
                 if address is None:
                     address = " "
@@ -502,7 +505,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
                     j += 1
 
-                i += 1
+                    i += 1
                 if i % 1000 == 0:
                     logging.info('      ' + str(i) + ' synchronized workers...')   
 
