@@ -505,7 +505,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor):
 
                     j += 1
 
-                    i += 1
+                i += 1
                 if i % 1000 == 0:
                     logging.info('      ' + str(i) + ' synchronized workers...')   
 
