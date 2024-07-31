@@ -551,7 +551,7 @@ def main():
         myCursor = db.cursor()
     except Exception as e:
         logging.error('   Unexpected error when connecting to MySQL database: ' + str(e))
-        send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(db)
         sys.exit(1)
 
