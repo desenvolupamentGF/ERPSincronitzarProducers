@@ -403,12 +403,11 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
 
                 linkedInProfile = " "
 
-                epiCode = int(code).zfill(5)
                 dataLocation={
                     "correlationId": str(dni),
                     "zoneId": str(GLAMSUITE_DEFAULT_ZONE_EPI_ID),
                     "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID),
-                    "containerCode": "EPI" + str(epiCode).strip(),
+                    "containerCode": "EPI" + str(code).zfill(5).strip(),
                     "description": str(name).strip(),
                     "position": str(code).strip(),
                     "preferential": False
