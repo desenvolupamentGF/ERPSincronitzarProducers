@@ -214,7 +214,6 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
             
                 if record is not None:           
                     codEmpleado = str(record[0]).strip()
-                    code = codEmpleado
                     if record[1] is not None:
                         address = record[1].strip()
                     if record[2] is not None:
@@ -404,11 +403,12 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
 
                 linkedInProfile = " "
 
+                epiCode = int(code).zfill(5)
                 dataLocation={
                     "correlationId": str(dni),
                     "zoneId": str(GLAMSUITE_DEFAULT_ZONE_EPI_ID),
                     "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_EPI_TYPE_ID),
-                    "containerCode": "EPI" + str(code).strip(),
+                    "containerCode": "EPI" + str(epiCode).strip(),
                     "description": str(name).strip(),
                     "position": str(code).strip(),
                     "preferential": False
