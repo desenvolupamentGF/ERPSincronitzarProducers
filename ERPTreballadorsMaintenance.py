@@ -206,7 +206,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                                      "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
                                      "LEFT JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
                                      "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
-                                     "AND en.FechaBaja IS NULL " \
+                                     # "AND en.FechaBaja IS NULL " \
                                      "AND en.codigoEmpresa = 1 " \
                                      "AND p.dni = '" + str(dni).strip() + "'"
                                      "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
