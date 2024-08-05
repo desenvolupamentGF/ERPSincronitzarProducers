@@ -1,7 +1,7 @@
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
-ENVIRONMENT = 0
+ENVIRONMENT = 1
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
 # TEST (0) O PRODUCCIÓ (1) ... BE CAREFUL!!!
@@ -483,7 +483,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                 # Biostar will be removed. When that happens, this part will not be needed.
                 myCursorBiostar.execute("SELECT sUserId " \
                                         "FROM [BioStar].dbo.tb_user " \
-                                        "WHERE LTRIMRTRIM((sEmail)) = '" + str(dni).strip() + "' ")
+                                        "WHERE LTRIM(RTRIM(sEmail)) = '" + str(dni).strip() + "' ")
                 record = myCursorBiostar.fetchone()   
 
                 oldCodeBiostar = ""
