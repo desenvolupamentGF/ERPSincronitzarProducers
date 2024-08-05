@@ -483,7 +483,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                 # Biostar will be removed. When that happens, this part will not be needed.
                 myCursorBiostar.execute("SELECT sUserId " \
                                         "FROM [BioStar].dbo.tb_user " \
-                                        "WHERE sEmail = '" + str(dni).strip() + "' ")
+                                        "WHERE LTRIMRTRIM((sEmail)) = '" + str(dni).strip() + "' ")
                 record = myCursorBiostar.fetchone()   
 
                 oldCodeBiostar = ""
