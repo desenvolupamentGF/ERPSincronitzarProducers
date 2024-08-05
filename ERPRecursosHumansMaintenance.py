@@ -304,8 +304,8 @@ def synchronize_timetables(now, myCursor):
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_workforces(now, myCursor):
-    logging.info('   Processing workforces from origin ERP (Sesame)')
+def synchronize_workforces(now, myCursor, activeWorker):
+    logging.info('   Processing workforces from origin ERP (Sesame) --> ActiveWorked: ' + str(activeWorker))
 
     try:
         # Preparing message queue
@@ -314,7 +314,12 @@ def synchronize_workforces(now, myCursor):
         i = 0
         j = 0
         endProcess = False
-        page = 1        
+        page = 1   
+
+        status = "&status=active"
+        if activeWorker == 0:
+            status = "&status=inactive"
+
         while not endProcess:
 
             headers = {
@@ -322,7 +327,7 @@ def synchronize_workforces(now, myCursor):
                 "Content-Type": "application/json"
             }
 
-            get_req = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page), headers=headers,
+            get_req = requests.get(URL_API_SESAME + URL_EMPLOYEES_SESAME + "?page=" + str(page) + str(status), headers=headers,
                                    verify=False, timeout=CONN_TIMEOUT)
             response = get_req.json()
 
@@ -399,7 +404,8 @@ def main():
     synchronize_calendarisLaborals(now, myCursor)    
     synchronize_departments(now, myCursor)    
     synchronize_timetables(now, myCursor)    
-    synchronize_workforces(now, myCursor)    
+    synchronize_workforces(now, myCursor, 1) # Active workers    
+    synchronize_workforces(now, myCursor, 0) # Non active workers     
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
