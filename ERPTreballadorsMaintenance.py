@@ -546,6 +546,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
         logging.error('   Unexpected error when processing workers from original ERP (Sesame/Sage): ' + str(e))
         send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectSQLServer(dbSage)
+        disconnectSQLServer(dbBiostar)
         sys.exit(1)
 
 def main():
