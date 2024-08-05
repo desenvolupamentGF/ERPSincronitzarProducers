@@ -488,7 +488,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
 
                 oldCodeBiostar = ""
                 if record is None:           
-                    logging.error('      Treballador no trobat a Biostar (DNI a columna sEmail). Seria bo arreglar-ho si és possible (pot ser necessari per l''access de Nono): ' + str(name).strip() + ' - ' + str(dni).strip() + ' ...') 
+                    logging.error('      Treballador no trobat a Biostar (DNI a columna sEmail). Seria bo arreglar-ho si és possible (pot ser necessari per access Nono): ' + str(name).strip() + ' - ' + str(dni).strip() + ' ...') 
                 else:
                     oldCodeBiostar = record[0]
 

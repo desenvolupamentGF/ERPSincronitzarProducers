@@ -4,6 +4,9 @@ import mysql.connector
 # To connect to SQLServer databases
 import pymssql
 
+# To connect to Access databases
+import pyodbc
+
 # Imports to send emails
 import smtplib
 from email.message import EmailMessage
@@ -37,6 +40,16 @@ def send_email(subject, environment, startTime, endTime, executionResult):
     s.login(EMAIL_USER_FROM, EMAIL_PASS)
     s.send_message(msg)
     s.quit()
+
+def connectAccess(file):
+    return pyodbc.connect("Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=" + str(file))
+       
+def disconnectAccess(db):
+    try:
+        db.rollback()
+        db.close()
+    except Exception as e:              
+        None
 
 def connectMySQL(user, password, host, database):
     return mysql.connector.connect(user=user, password=password,
