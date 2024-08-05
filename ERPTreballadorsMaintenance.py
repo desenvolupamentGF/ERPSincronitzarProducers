@@ -76,6 +76,11 @@ SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
 SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
 SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
+BIOSTAR_SQLSERVER_USER = os.environ['BIOSTAR_SQLSERVER_USER']
+BIOSTAR_SQLSERVER_PASSWORD = os.environ['BIOSTAR_SQLSERVER_PASSWORD']
+BIOSTAR_SQLSERVER_HOST = os.environ['BIOSTAR_SQLSERVER_HOST']
+BIOSTAR_SQLSERVER_DATABASE = os.environ['BIOSTAR_SQLSERVER_DATABASE']
+
 # Other constants
 CONN_TIMEOUT = 50
 
@@ -98,7 +103,7 @@ def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin
 
 # TO BE USED ONLY WHEN COLUMN helper ON TABLE ERPIntegration IS NEEDED !!!
 # Check the following query time to time. It should NOT retrieve any row:
-# select * FROM ERP_GF.ERPIntegration  where deploy=1 and endpoint='Recursos Humans ERP GF' and calltype='/workforces' and helper=''
+# select * FROM ERP_GF.ERPIntegration where deploy=1 and endpoint='Recursos Humans ERP GF' and calltype='/workforces' and helper=''
 # File "Departaments i Workforce.xlsx" includes all the department vs workforce values.
 def get_value_from_database_helper(mycursor, endPoint, origin, correlationId):
     mycursor.execute("SELECT erpGFId, helper FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND deploy = " + str(ENVIRONMENT) + " AND correlationId = '" + str(correlationId).replace("'", "''") + "'")
@@ -129,7 +134,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
+def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, activeWorker):
     logging.info('   Processing workers from origin ERP (Sesame/Sage) --> ActiveWorked: ' + str(activeWorker))
 
     # processing workers from origin ERP (Sesame)
@@ -171,11 +176,11 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
 
                 _workforce = data1["jobChargeName"]
                 if _workforce is None:
-                    logging.error('Worker without jobChargeName populated: ' + data1["nid"])
+                    logging.error('Worker without jobChargeName/workforce populated: ' + data1["nid"])
                     continue # if not populated, this worker is not used. Next!
                 else:
                     # We need to get the department name using the workforce.
-                    glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', _workforce)
+                    glam_id, _dept = get_value_from_database_helper(myCursor, 'Recursos Humans ERP GF', 'Sesame', str(_workforce))
                     if glam_id is None: 
                         logging.warning('Workforce not found on the correlationId column of ERPIntegration: ' + str(_workforce))
                         continue # if not found, this worker is not used. Next!
@@ -475,6 +480,18 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                     else:
                         page2 = page2 + 1
 
+                # Biostar will be removed. When that happens, this part will not be needed.
+                myCursorBiostar.execute("SELECT sUserId " \
+                                        "FROM [BioStar].dbo.tb_user " \
+                                        "WHERE sEmail = '" + str(dni).strip() + "' ")
+                record = myCursorBiostar.fetchone()   
+
+                oldCodeBiostar = ""
+                if record is None:           
+                    logging.error('      Treballador no trobat a Biostar (DNI a columna sEmail). Seria bo arreglar-ho si és possible (pot ser necessari per l''access de Nono): ' + str(name).strip() + ' - ' + str(dni).strip() + ' ...') 
+                else:
+                    oldCodeBiostar = record[0]
+
                 data={
                     "queueType": "TREBALLADORS_TREBALLADORS",
                     "name": str(name).strip(),
@@ -494,6 +511,7 @@ def synchronize_workers(dbSage, myCursorSage, now, myCursor, activeWorker):
                     "absences": absences.get(dni, []),
                     "correlationId": str(dni).strip(),
                     "dataLocation": dataLocation,
+                    "oldCodeBiostar": str(oldCodeBiostar).strip()
                 }
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
@@ -565,8 +583,19 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_workers(dbSage, myCursorSage, now, myCursor, 1) # Active workers    
-    synchronize_workers(dbSage, myCursorSage, now, myCursor, 0) # Non active workers    
+    # connecting to Biostar database (SQLServer)
+    dbBiostar = None
+    try:
+        dbBiostar = connectSQLServer(BIOSTAR_SQLSERVER_USER, BIOSTAR_SQLSERVER_PASSWORD, BIOSTAR_SQLSERVER_HOST, BIOSTAR_SQLSERVER_DATABASE)
+        myCursorBiostar = dbBiostar.cursor()
+    except Exception as e:
+        logging.error('   Unexpected error when connecting to SQLServer Biostar database: ' + str(e))
+        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectSQLServer(dbBiostar)
+        sys.exit(1)
+
+    synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, 1) # Active workers    
+    synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, 0) # Non active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
@@ -579,6 +608,8 @@ def main():
     myCursor.close()
     myCursorSage.close()
     dbSage.close()
+    myCursorBiostar.close()
+    dbBiostar.close()
 
     sys.exit(0)
 
