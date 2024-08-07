@@ -108,7 +108,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
 
     # processing production orders from origin ERP (Access-Nono)
     try:
-        # loop over the production orders
+        # loop over the production orders (following WHERE conditions agreed with Nono as to get all the active OFs)
         myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL ") 
 
         # Preparing message queue
