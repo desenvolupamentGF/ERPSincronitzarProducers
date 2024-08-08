@@ -23,7 +23,6 @@ import sys
 import datetime
 from utils import send_email, connectMySQL, disconnectMySQL, connectAccess, disconnectAccess
 import os
-import math
 
 # End points URLs
 URL_PRODUCTIONORDERS = '/productionOrders'
@@ -57,6 +56,9 @@ EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
 
 # Database constants
 ACCESS_NONO = os.environ['ACCESS_NONO']
+
+# Other constants
+YEARS_TO_RECALCULATE = 3
 
 # TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
@@ -109,7 +111,8 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
     # processing production orders from origin ERP (Access-Nono)
     try:
         # loop over the production orders (following WHERE conditions agreed with Nono as to get all the active OFs)
-        myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL ") 
+        # plus all OFs created in the last 3 years
+        myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
@@ -163,7 +166,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
 
             data={
                 "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS",
-                "code": str(_of).strip(),
+                "counter": str(_of).strip(),
                 "startDate": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
                 "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                 "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
