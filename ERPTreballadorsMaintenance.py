@@ -33,6 +33,7 @@ URL_WORKERS = '/workers'
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_EMPLOYEES_SESAME = "/core/v3/employees"
 URL_ABSENCES_SESAME = "/schedule/v1/absence-day-off"
+URL_CONTRACTS_SESAME = "/contract/v1/contracts"
 URL_API_SESAME = os.environ['URL_API_SESAME']
 TOKEN_API_SESAME = os.environ['TOKEN_API_SESAME']
 
@@ -168,11 +169,27 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                 dni = data1["nid"]
                 code = data1["code"]
 
+                logging.info('   Worker is: ' + str(name) + ' with dni: ' + str(dni))
+
                 if dni == '':
                     logging.error('      Treballador no té DNI: ' + str(name).strip() + ' ...') 
                     continue # if not found, this worker is not used. Next!
 
-                logging.info('   Worker is: ' + str(name) + ' with dni: ' + str(dni))
+                contractTypeId = 0 
+                customFields = data1["customFields"]        
+                for customField in customFields:
+                    if customField['slug'] == 'cf_tipo_de_contratacion':
+                        if customField['value'] == "García Faura":
+                            contractTypeId = 1
+                        if customField['value'] == "Prácticas / Becario":
+                            contractTypeId = 1
+                        if customField['value'] == "ETT":                            
+                            contractTypeId = 2
+                        break  
+ 
+                if contractTypeId == 0:
+                    logging.error('      Treballador no té el tipus de contractació informat: ' + str(name).strip() + ' ...') 
+                    continue # if not found, this worker is not used. Next!
 
                 _workforce = data1["jobChargeName"]
                 if _workforce is None:
@@ -196,203 +213,287 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                 contracts = {} 
                 absences = {}
 
-                myCursorSage.execute("SELECT en.codigoEmpleado, " \
-                                     "RTRIM(pd.CodigoSigla + ' ' + LTRIM(pd.ViaPublica + ' ') + LTRIM(pd.Numero1 + ' ') + LTRIM(pd.Numero2 + ' ') + LTRIM(pd.Escalera + ' ') + LTRIM(pd.Piso + ' ') + LTRIM(pd.Puerta + ' ') + LTRIM(pd.Letra)) AS direccion, " \
-                                     "pd.CodigoPostal, " \
-                                     "pd.Municipio, " \
-                                     "pd.Provincia, " \
-                                     "ec.ibanReceptor, " \
-                                     "p.SiglaNacion, " \
-                                     "p.primerApellidoEmpleado, " \
-                                     "p.segundoApellidoEmpleado, " \
-                                     "p.nombreEmpleado " \
-                                     "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
-                                     "INNER JOIN [GARCIAFAURA].dbo.Personas p ON p.SiglaNacion = en.SiglaNacion AND p.Dni = en.Dni " \
-                                     "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
-                                     "LEFT JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
-                                     "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
-                                     # "AND en.FechaBaja IS NULL " \
-                                     "AND en.codigoEmpresa = 1 " \
-                                     "AND p.dni = '" + str(dni).strip() + "'"
-                                     "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
-                record = myCursorSage.fetchone()   
-            
-                if record is not None:           
-                    codEmpleado = str(record[0]).strip()
-                    if record[1] is not None:
-                        address = record[1].strip()
-                    if record[2] is not None:
-                        postalCode = record[2].strip()
-                    if record[3] is not None:
-                        city = record[3].strip()
-                    if record[4] is not None:
-                        region = record[4].strip()
-                    if record[5] is not None:
-                        iban = record[5].strip()
-                    if record[6] is not None:                            
-                        country_code = record[6]
+                if contractTypeId == 1: # Garcia Faura worker
 
-                    primerApellidoEmpleado = record[7]
-                    segundoApellidoEmpleado = record[8]
-                    nombreEmpleado = record[9]
-                    name = nombreEmpleado.strip()
-                    if primerApellidoEmpleado.strip() != "":
-                        name = name + ' ' + primerApellidoEmpleado.strip()
-                    if segundoApellidoEmpleado.strip() != "":
-                        name = name + ' ' + segundoApellidoEmpleado.strip()
-
-                    # Costs per year of the employee
-                    # myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
-                    #                     "  SELECT año AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
-                    #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
-                    #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
-                    #                     "  AND codigoEmpresa = 1 " \
-                    #                     "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
-                    #                     "  AND año < YEAR(GETDATE()) " \
-                    #                     "  GROUP BY año " \
-                    #                     "    UNION " \
-                    #                     "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
-                    #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
-                    #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
-                    #                     "  AND codigoEmpresa = 1 " \
-                    #                     "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
-                    #                     "  AND año < YEAR(GETDATE()) " \
-                    #                     "  GROUP BY año) t " \
-                    #                     " GROUP BY year " \
-                    #                     "ORDER BY year ")
-                    # Costs per year of the employee
-                    myCursorSage.execute("SELECT año, ROUND(SUM(baseini) / COUNT(*), 2) AS annualGrossSalary, ROUND(SUM(baseini) * " + str(PORC_SEGURETAT_SOCIAL_2024) + " / 100 / COUNT(*), 2) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
-                                         "FROM [GARCIAFAURA].dbo.HistoricoCalculoRentaD " \
-                                         "WHERE codigoEmpleado = '" + codEmpleado + "' " \
-                                         "AND codigoEmpresa = 1 " \
-                                         "GROUP BY año " \
-                                         "ORDER BY año ")
-
-                    for _year, _annualGrossSalary, _annualSocialSecurityContribution, _annualOtherExpenses in myCursorSage.fetchall():
-                        if dni not in costs:
-                            costs[dni] = []    
-
-                        _input = str(_year) + "/12/31"
-                        _format = '%Y/%m/%d'    
-                        _datetime = datetime.datetime.strptime(_input, _format)
-                        if _annualSocialSecurityContribution > LIMIT_COST_SEGURETAT_SOCIAL_2024:
-                            _annualSocialSecurityContribution = LIMIT_COST_SEGURETAT_SOCIAL_2024
-                        costs[dni].append(
-                        {   
-                            "date": _datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),   
-                            "annualGrossSalary": float(_annualGrossSalary),
-                            "annualSocialSecurityContribution": float(_annualSocialSecurityContribution),
-                            "annualOtherExpenses": float(_annualOtherExpenses),
-                            "correlationId": str(dni).strip()
-                        }
-                    )
-                        
-                    # Contracts of the employee    
-                    myCursorSage.execute("SELECT c.codigoContrato, " \
-                                         "c.subCodigoContrato, " \
-                                         "en.fechaAlta, " \
-                                         "en.fechaBaja, " \
-                                         "en.porJornada, " \
-                                         "en.codigoDepartamento " \
+                    myCursorSage.execute("SELECT en.codigoEmpleado, " \
+                                         "RTRIM(pd.CodigoSigla + ' ' + LTRIM(pd.ViaPublica + ' ') + LTRIM(pd.Numero1 + ' ') + LTRIM(pd.Numero2 + ' ') + LTRIM(pd.Escalera + ' ') + LTRIM(pd.Piso + ' ') + LTRIM(pd.Puerta + ' ') + LTRIM(pd.Letra)) AS direccion, " \
+                                         "pd.CodigoPostal, " \
+                                         "pd.Municipio, " \
+                                         "pd.Provincia, " \
+                                         "ec.ibanReceptor, " \
+                                         "p.SiglaNacion, " \
+                                         "p.primerApellidoEmpleado, " \
+                                         "p.segundoApellidoEmpleado, " \
+                                         "p.nombreEmpleado " \
                                          "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
-                                         "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
+                                         "INNER JOIN [GARCIAFAURA].dbo.Personas p ON p.SiglaNacion = en.SiglaNacion AND p.Dni = en.Dni " \
+                                         "LEFT JOIN [GARCIAFAURA].dbo.PersonasDomicilios pd ON pd.SiglaNacion = p.SiglaNacion AND pd.Dni = p.Dni " \
+                                         "LEFT JOIN [GARCIAFAURA].dbo.empleadoCobro ec ON ec.codigoEmpresa = en.codigoEmpresa AND ec.idEmpleado = en.idEmpleado " \
+                                         "WHERE pd.CodigoDireccionPersona IN ('PAR','FIS') " \
+                                         # "AND en.FechaBaja IS NULL " \
                                          "AND en.codigoEmpresa = 1 " \
-                                         "AND en.dni = '" + str(dni).strip() + "'")
+                                         "AND p.dni = '" + str(dni).strip() + "'"
+                                         "ORDER BY ec.porcentaje DESC, pd.CodigoDireccionPersona DESC ")
+                    record = myCursorSage.fetchone()   
+            
+                    if record is not None:           
+                        codEmpleado = str(record[0]).strip()
+                        if record[1] is not None:
+                            address = record[1].strip()
+                        if record[2] is not None:
+                            postalCode = record[2].strip()
+                        if record[3] is not None:
+                            city = record[3].strip()
+                        if record[4] is not None:
+                            region = record[4].strip()
+                        if record[5] is not None:
+                            iban = record[5].strip()
+                        if record[6] is not None:                            
+                            country_code = record[6]
 
-                    for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada, _codigoDepartamento in myCursorSage.fetchall():
-                        numHorasDia = float(8 * _porcentajeJornada / 100) # Num hours a day. Example: if _porcentajeJornada is 75%, then 75% of 8 hours a day is 6 hours a day
-                        horario = ""
-                        shift = ""
-                        if numHorasDia == float(8):
+                        primerApellidoEmpleado = record[7]
+                        segundoApellidoEmpleado = record[8]
+                        nombreEmpleado = record[9]
+                        name = nombreEmpleado.strip()
+                        if primerApellidoEmpleado.strip() != "":
+                            name = name + ' ' + primerApellidoEmpleado.strip()
+                        if segundoApellidoEmpleado.strip() != "":
+                            name = name + ' ' + segundoApellidoEmpleado.strip()
+
+                        # Costs per year of the employee
+                        # myCursorSage.execute("SELECT year, SUM(anualSalary) AS annualGrossSalary, SUM(anualSocialContribution) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses FROM ( " \
+                        #                     "  SELECT año AS year, SUM(importenom) AS anualSalary, 0 AS anualSocialContribution " \
+                        #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                        #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                        #                     "  AND codigoEmpresa = 1 " \
+                        #                     "  AND conceptoCorto = 'Devengos' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                        #                     "  AND año < YEAR(GETDATE()) " \
+                        #                     "  GROUP BY año " \
+                        #                     "    UNION " \
+                        #                     "  SELECT año AS year, 0 AS anualSalary, SUM(importenom) AS anualSocialContribution " \
+                        #                     "  FROM [GARCIAFAURA].dbo.VIS_NOM_AEM_FichaHistAnual  " \
+                        #                     "  WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                        #                     "  AND codigoEmpresa = 1 " \
+                        #                     "  AND conceptoCorto = 'Total Coste SS' AND tipo = 'Valor' AND tipoProceso IN ('MES','P01','P02') " \
+                        #                     "  AND año < YEAR(GETDATE()) " \
+                        #                     "  GROUP BY año) t " \
+                        #                     " GROUP BY year " \
+                        #                     "ORDER BY year ")
+                        # Costs per year of the employee
+                        myCursorSage.execute("SELECT año, ROUND(SUM(baseini) / COUNT(*), 2) AS annualGrossSalary, ROUND(SUM(baseini) * " + str(PORC_SEGURETAT_SOCIAL_2024) + " / 100 / COUNT(*), 2) AS annualSocialSecurityContribution, 0 AS annualOtherExpenses " \
+                                             "FROM [GARCIAFAURA].dbo.HistoricoCalculoRentaD " \
+                                             "WHERE codigoEmpleado = '" + codEmpleado + "' " \
+                                             "AND codigoEmpresa = 1 " \
+                                             "GROUP BY año " \
+                                             "ORDER BY año ")
+
+                        for _year, _annualGrossSalary, _annualSocialSecurityContribution, _annualOtherExpenses in myCursorSage.fetchall():
+                            if dni not in costs:
+                                costs[dni] = []    
+
+                            _input = str(_year) + "/12/31"
+                            _format = '%Y/%m/%d'    
+                            _datetime = datetime.datetime.strptime(_input, _format)
+                            if _annualSocialSecurityContribution > LIMIT_COST_SEGURETAT_SOCIAL_2024:
+                                _annualSocialSecurityContribution = LIMIT_COST_SEGURETAT_SOCIAL_2024
+                            costs[dni].append(
+                            {   
+                                "date": _datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),   
+                                "annualGrossSalary": float(_annualGrossSalary),
+                                "annualSocialSecurityContribution": float(_annualSocialSecurityContribution),
+                                "annualOtherExpenses": float(_annualOtherExpenses),
+                                "correlationId": str(dni).strip()
+                            }
+                        )
+                        
+                        # Contracts of the employee    
+                        myCursorSage.execute("SELECT c.codigoContrato, " \
+                                             "c.subCodigoContrato, " \
+                                             "en.fechaAlta, " \
+                                             "en.fechaBaja, " \
+                                             "en.porJornada, " \
+                                             "en.codigoDepartamento " \
+                                             "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
+                                             "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
+                                             "AND en.codigoEmpresa = 1 " \
+                                             "AND en.dni = '" + str(dni).strip() + "'")
+
+                        for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada, _codigoDepartamento in myCursorSage.fetchall():
+                            numHorasDia = float(8 * _porcentajeJornada / 100) # Num hours a day. Example: if _porcentajeJornada is 75%, then 75% of 8 hours a day is 6 hours a day
+                            horario = ""
+                            shift = ""
+                            if numHorasDia == float(8):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_8h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_8h
+                            if numHorasDia == float(6.5):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h
+                            if numHorasDia == float(6):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_6h
+                            if numHorasDia == float(5.6):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5dot6h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_5dot6h
+                            if numHorasDia == float(5):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_5h
+                            if numHorasDia == float(4.8):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4dot8h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_4dot8h
+                            if numHorasDia == float(4):
+                                horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4h
+                                shift = GLAMSUITE_DEFAULT_SHIFT_ID_4h
+                            if horario == "":                        
+                                logging.error('      ERROR - Hores per dia no correctes. Mirar per què: ' + str(dni).strip() + ' percentatge: ' + str(_porcentajeJornada) + ' ...') 
+                                continue # this contract is not used. Next!            
+                                
+                            costTypeId = _codigoDepartamento
+                            if _fechaBaja is None: # For the current contract, we need values 1 (DIRECTE) or 2 (INDIRECTE) 
+                                if str(costTypeId) != str(1) and str(costTypeId) != str(2):
+                                    logging.error('      ERROR - CostTypeId incorrecte. Mirar per què: ' + str(dni).strip() + ' costTypeId: ' + str(costTypeId) + ' ...') 
+
+                            contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
+
+                            if dni not in contracts:
+                                contracts[dni] = []    
+
+                            if _fechaBaja is None:
+                                contracts[dni].append(
+                                {    
+                                    "contractNumber": contractNumber,
+                                    "contractTypeId": contractTypeId,
+                                    "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "departmentId": str(_dept),
+                                    "workforceId": str(_workforce),
+                                    "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                    "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
+                                    "timetableId": str(horario),
+                                    "shifts": [
+                                        {
+                                          "monday": str(shift),
+                                          "tuesday": str(shift),
+                                          "wednesday": str(shift),
+                                          "thursday": str(shift),
+                                          "friday": str(shift),
+                                          "saturday": None,
+                                          "sunday": None
+                                        }],
+                                    "costTypeId": str(costTypeId),
+                                    "correlationId": str(dni).strip()
+                                })     
+                            else:
+                                contracts[dni].append(
+                                {    
+                                    "contractNumber": contractNumber,
+                                    "contractTypeId": contractTypeId,
+                                    "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "endDate": _fechaBaja.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "departmentId": str(_dept),
+                                    "workforceId": str(_workforce),
+                                    "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                    "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
+                                    "timetableId": str(horario),
+                                    "shifts": [
+                                        {
+                                          "monday": str(shift),
+                                          "tuesday": str(shift),
+                                          "wednesday": str(shift),
+                                          "thursday": str(shift),
+                                          "friday": str(shift),
+                                          "saturday": None,
+                                          "sunday": None
+                                        }],
+                                    "costTypeId": str(costTypeId),
+                                    "correlationId": str(dni).strip()
+                                })     
+                    else:
+                        logging.warning('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
+                
+                else: # ETT (contractTypeId == 2)
+
+                    endProcess2 = False
+                    page2 = 1        
+
+                    while not endProcess2:
+
+                        get_req2 = requests.get(URL_API_SESAME + URL_CONTRACTS_SESAME + "/" + str(workerId) + "?page=" + str(page2), headers=headers,
+                                                verify=False, timeout=CONN_TIMEOUT)
+                        response2 = get_req2.json()
+
+                        for data2 in response2["data"]:
+
+                            _format = '%Y-%m-%d'    
+                            startDate = data2["startDate"]
+                            startDateAux = None
+                            if startDate is not None:
+                                startDateAux = datetime.datetime.strptime(startDate, _format)
+                            endDate = data2["endDate"]
+                            endDateAux = None
+                            if endDate is not None:
+                                endDateAux = datetime.datetime.strptime(endDate, _format)
+
+                            if dni not in contracts:
+                                contracts[dni] = []    
+
                             horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_8h
                             shift = GLAMSUITE_DEFAULT_SHIFT_ID_8h
-                        if numHorasDia == float(6.5):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6dot5h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_6dot5h
-                        if numHorasDia == float(6):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_6h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_6h
-                        if numHorasDia == float(5.6):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5dot6h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_5dot6h
-                        if numHorasDia == float(5):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_5h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_5h
-                        if numHorasDia == float(4.8):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4dot8h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_4dot8h
-                        if numHorasDia == float(4):
-                            horario = GLAMSUITE_DEFAULT_TIMETABLE_ID_4h
-                            shift = GLAMSUITE_DEFAULT_SHIFT_ID_4h
-                        if horario == "":                        
-                            logging.error('      ERROR - Hores per dia no correctes. Mirar per què: ' + str(dni).strip() + ' percentatge: ' + str(_porcentajeJornada) + ' ...') 
-                            continue # this contract is not used. Next!            
+                        
+                            if endDate is None: # Active 
+                                contracts[dni].append(
+                                {    
+                                    "contractNumber": "ETT" + str(code),
+                                    "contractTypeId": contractTypeId,
+                                    "startDate": startDateAux.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "departmentId": str(_dept),
+                                    "workforceId": str(_workforce),
+                                    "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                    "annualWorkingHours": float(NUM_YEARLY_WORK_HOURS_2024), 
+                                    "timetableId": str(horario), 
+                                    "shifts": [
+                                        {
+                                          "monday": str(shift),
+                                          "tuesday": str(shift),
+                                          "wednesday": str(shift),
+                                          "thursday": str(shift),
+                                          "friday": str(shift),
+                                          "saturday": None,
+                                          "sunday": None
+                                        }],
+                                    "costTypeId": str(1), # Directe
+                                    "correlationId": str(dni).strip()
+                                })     
+                            else: # Not active
+                                contracts[dni].append(
+                                {    
+                                    "contractNumber": "ETT" + str(code),
+                                    "contractTypeId": contractTypeId,
+                                    "startDate": startDateAux.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "endDate": endDateAux.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "departmentId": str(_dept),
+                                    "workforceId": str(_workforce),
+                                    "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
+                                    "annualWorkingHours": float(NUM_YEARLY_WORK_HOURS_2024), 
+                                    "timetableId": str(horario), 
+                                    "shifts": [
+                                        {
+                                          "monday": str(shift),
+                                          "tuesday": str(shift),
+                                          "wednesday": str(shift),
+                                          "thursday": str(shift),
+                                          "friday": str(shift),
+                                          "saturday": None,
+                                          "sunday": None
+                                        }],
+                                    "costTypeId": str(1), # Directe
+                                    "correlationId": str(dni).strip()
+                                })     
 
-                        costTypeId = _codigoDepartamento
-                        if _fechaBaja is None: # For the current contract, we need values 1 (DIRECTE) or 2 (INDIRECTE) 
-                            if str(costTypeId) != str(1) and str(costTypeId) != str(2):
-                                logging.error('      ERROR - CostTypeId incorrecte. Mirar per què: ' + str(dni).strip() + ' costTypeId: ' + str(costTypeId) + ' ...') 
-
-                        contractNumber = (str(_codigoContrato) + "/" + str(_subCodigoContrato)).strip()
-                        contractTypeId = 1 # Contracte indefinit
-                        if contractNumber[0:1] == "4" or contractNumber[0:1] == "5":
-                            contractTypeId = 2 # Contracte temporal
-
-                        if dni not in contracts:
-                            contracts[dni] = []    
-
-                        if _fechaBaja is None:
-                            contracts[dni].append(
-                            {    
-                                "contractNumber": contractNumber,
-                                "contractTypeId": contractTypeId,
-                                "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "departmentId": str(_dept),
-                                "workforceId": str(_workforce),
-                                "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
-                                "timetableId": str(horario),
-                                "shifts": [
-                                    {
-                                      "monday": str(shift),
-                                      "tuesday": str(shift),
-                                      "wednesday": str(shift),
-                                      "thursday": str(shift),
-                                      "friday": str(shift),
-                                      "saturday": None,
-                                      "sunday": None
-                                    }],
-                                "costTypeId": str(costTypeId),
-                                "correlationId": str(dni).strip()
-                            })     
+                        meta2 = response2["meta"]
+                        if str(meta2["lastPage"]) == str(page2):
+                            endProcess2 = True
                         else:
-                            contracts[dni].append(
-                            {    
-                                "contractNumber": contractNumber,
-                                "contractTypeId": contractTypeId,
-                                "startDate": _fechaAlta.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "endDate": _fechaBaja.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "departmentId": str(_dept),
-                                "workforceId": str(_workforce),
-                                "calendarId": str(GLAMSUITE_DEFAULT_CALENDAR_ID),
-                                "annualWorkingHours": float((_porcentajeJornada * NUM_YEARLY_WORK_HOURS_2024) / 100),
-                                "timetableId": str(horario),
-                                "shifts": [
-                                    {
-                                      "monday": str(shift),
-                                      "tuesday": str(shift),
-                                      "wednesday": str(shift),
-                                      "thursday": str(shift),
-                                      "friday": str(shift),
-                                      "saturday": None,
-                                      "sunday": None
-                                    }],
-                                "costTypeId": str(costTypeId),
-                                "correlationId": str(dni).strip()
-                            })     
-                else:
-                    logging.warning('      Treballador no trobat a SAGE: ' + str(dni).strip() + ' ...') 
-            
+                            page2 = page2 + 1
+
                 if address is None:
                     address = " "
                 if postalCode is None:
@@ -418,20 +519,20 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                     "preferential": False
                 }                             
 
-                page2 = 1
-                endProcess2 = False
-                while not endProcess2:
+                page3 = 1
+                endProcess3 = False
+                while not endProcess3:
 
                     strFrom = datetime.date.today() - datetime.timedelta(90) # Darrers tres mesos
-                    get_req2 = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page2) + "&employeeIds=" + str(workerId) + "&from=" + str(strFrom), headers=headers,
+                    get_req3 = requests.get(URL_API_SESAME + URL_ABSENCES_SESAME + "?page=" + str(page3) + "&employeeIds=" + str(workerId) + "&from=" + str(strFrom), headers=headers,
                                             verify=False, timeout=CONN_TIMEOUT)
-                    response2 = get_req2.json()
+                    response3 = get_req3.json()
 
-                    for data2 in response2["data"]:
+                    for data3 in response3["data"]:
 
-                        date = str(data2["date"]) + "T00:00:00"
-                        nonWorkingReasonId = data2["calendar"]["absenceType"]["id"]
-                        nonWorkingReasonName = data2["calendar"]["absenceType"]["name"]
+                        date = str(data3["date"]) + "T00:00:00"
+                        nonWorkingReasonId = data3["calendar"]["absenceType"]["id"]
+                        nonWorkingReasonName = data3["calendar"]["absenceType"]["name"]
                         timetableId = None
                         shiftId = None
 
@@ -474,11 +575,11 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, m
                             "correlationId": str(dni).strip()
                         })
 
-                    meta2 = response2["meta"]
-                    if str(meta2["lastPage"]) == str(page2):
-                        endProcess2 = True
+                    meta3 = response3["meta"]
+                    if str(meta3["lastPage"]) == str(page3):
+                        endProcess3 = True
                     else:
-                        page2 = page2 + 1
+                        page3 = page3 + 1
 
                 # Biostar will be removed. When that happens, this part will not be needed.
                 myCursorBiostar.execute("SELECT sUserId " \
@@ -596,7 +697,7 @@ def main():
         sys.exit(1)
 
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, 1) # Active workers    
-    synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, 0) # Non active workers    
+    synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, myCursor, 0) # Not active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
