@@ -132,7 +132,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
                 workerTimes[_of] = []    
 
             # Worker Times Tickets
-            myCursorNono.execute("SELECT IdDiario, Matricula, Data, [Taper Seg] FROM [Diario] WHERE Matricula <> 0 AND Of = '" + str(_of) + "' ") 
+            myCursorNono.execute("SELECT IdDiario, Matricula, Data, IIF(ISNULL([Taper Seg]), 0, [Taper Seg]) FROM [Diario] WHERE Matricula <> 0 AND Of = '" + str(_of) + "' ") 
 
             for _id, _matricula, _data, _segundos in myCursorNono.fetchall():
 
