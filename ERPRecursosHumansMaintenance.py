@@ -61,6 +61,12 @@ MYSQL_DATABASE = os.environ['MYSQL_DATABASE']
 # Other constants
 CONN_TIMEOUT = 50
 
+def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
+    sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
+    val = (str(GLAMSUITE_DEFAULT_COMPANY_ID), str(endPoint), str(ENVIRONMENT), str(message), str(typeLog))
+    mycursor.execute(sql, val)
+    dbOrigin.commit()  
+
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -90,7 +96,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_calendarisLaborals(now, myCursor):
+def synchronize_calendarisLaborals(now, dbOrigin, myCursor):
     logging.info('   Processing calendaris laborals from origin ERP (Sesame)')
 
     try:
@@ -164,11 +170,13 @@ def synchronize_calendarisLaborals(now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing calendars from original ERP (Sesame): ' + str(e))
+        message = '   Unexpected error when processing calendars from original ERP (Sesame): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPRecursosHumansMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_departments(now, myCursor):
+def synchronize_departments(now, dbOrigin, myCursor):
     logging.info('   Processing departments from origin ERP (Sesame)')
 
     try:
@@ -232,11 +240,13 @@ def synchronize_departments(now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing departments from original ERP (Sesame): ' + str(e))
+        message = '   Unexpected error when processing departments from original ERP (Sesame): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPRecursosHumansMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_timetables(now, myCursor):
+def synchronize_timetables(now, dbOrigin, myCursor):
     logging.info('   Processing timetables from origin ERP (Sesame)')
 
     try:
@@ -300,11 +310,13 @@ def synchronize_timetables(now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing timetables from original ERP (Sesame): ' + str(e))
+        message = '   Unexpected error when processing timetables from original ERP (Sesame): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPRecursosHumansMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
-def synchronize_workforces(now, myCursor, activeWorker):
+def synchronize_workforces(now, dbOrigin, myCursor, activeWorker):
     logging.info('   Processing workforces from origin ERP (Sesame) --> ActiveWorked: ' + str(activeWorker))
 
     try:
@@ -373,7 +385,9 @@ def synchronize_workforces(now, myCursor, activeWorker):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing workforces from original ERP (Sesame): ' + str(e))
+        message = '   Unexpected error when processing workforces from original ERP (Sesame): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPRecursosHumansMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
@@ -401,11 +415,11 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_calendarisLaborals(now, myCursor)    
-    synchronize_departments(now, myCursor)    
-    synchronize_timetables(now, myCursor)    
-    synchronize_workforces(now, myCursor, 1) # Active workers    
-    synchronize_workforces(now, myCursor, 0) # Non active workers     
+    synchronize_calendarisLaborals(now, db, myCursor)    
+    synchronize_departments(now, db, myCursor)    
+    synchronize_timetables(now, db, myCursor)    
+    synchronize_workforces(now, db, myCursor, 1) # Active workers    
+    synchronize_workforces(now, db, myCursor, 0) # Non active workers     
 
     # Send email with execution summary
     send_email("ERPRecursosHumansMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

@@ -58,6 +58,12 @@ SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
 SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
 SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
 
+def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
+    sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
+    val = (str(GLAMSUITE_DEFAULT_COMPANY_ID), str(endPoint), str(ENVIRONMENT), str(message), str(typeLog))
+    mycursor.execute(sql, val)
+    dbOrigin.commit()  
+
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -87,7 +93,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursor):
+def synchronize_paymentMethods(dbSage, myCursorSage, now, dbOrigin, myCursor):
     logging.info('   Processing payment methods from origin ERP (Sage)')
 
     # processing payment methods from origin ERP (Sage)
@@ -132,12 +138,14 @@ def synchronize_paymentMethods(dbSage, myCursorSage, now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing payment methods from original ERP (Sage): ' + str(e))
+        message = '   Unexpected error when processing payment methods from original ERP (Sage): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(dbSage)
         sys.exit(1)
 
-def synchronize_organizations(dbSage, myCursorSage, now, myCursor):
+def synchronize_organizations(dbSage, myCursorSage, now, dbOrigin, myCursor):
     logging.info('   Processing proveïdors i clients from origin ERP (Sage)')
 
     # processing proveïdors i clients from origin ERP (Sage)
@@ -244,7 +252,9 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursor):
                 # Get Glam Payment Method id.
                 glam_payment_method_id, nothing_to_do = get_value_from_database(myCursor, correlation_id=codigoCondicionesP, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
                 if glam_payment_method_id is None:
-                    logging.error('Payment method not found! Check why! (' + str(_CIF) + '/' + str(codigoCondicionesP) + ")")
+                    message = 'Payment method not found! Check why! (' + str(_CIF) + '/' + str(codigoCondicionesP) + ')'
+                    save_log_database(dbOrigin, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+                    logging.error(message)
                     continue # skip to next organization (should not happen)
                 else:
                     dataProveedor["paymentMethodId"] = glam_payment_method_id
@@ -281,7 +291,9 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursor):
                 # Get Glam Payment Method id.
                 glam_payment_method_id, nothing_to_do = get_value_from_database(myCursor, correlation_id=codigoCondicionesC, url=URL_PAYMENTMETHODS, endPoint="Organizations ERP GF", origin="Sage")
                 if glam_payment_method_id is None:
-                    logging.error('Payment method not found! Check why!')
+                    message = 'Payment method not found! Check why!'
+                    save_log_database(dbOrigin, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+                    logging.error(message)
                     continue # skip to next organization (should not happen)
                 else:
                     dataCliente["paymentMethodId"] = glam_payment_method_id
@@ -329,7 +341,9 @@ def synchronize_organizations(dbSage, myCursorSage, now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing organizations from original ERP (Sage): ' + str(e))
+        message = '   Unexpected error when processing organizations from original ERP (Sage): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectSQLServer(dbSage)
         sys.exit(1)
@@ -364,13 +378,15 @@ def main():
         dbSage = connectSQLServer(SAGE_SQLSERVER_USER, SAGE_SQLSERVER_PASSWORD, SAGE_SQLSERVER_HOST, SAGE_SQLSERVER_DATABASE)
         myCursorSage = dbSage.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to SQLServer Sage database: ' + str(e))
+        message = '   Unexpected error when connecting to SQLServer Sage database: ' + str(e)
+        save_log_database(db, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
-    synchronize_paymentMethods(dbSage, myCursorSage, now, myCursor)    
-    synchronize_organizations(dbSage, myCursorSage, now, myCursor)    
+    synchronize_paymentMethods(dbSage, myCursorSage, now, db, myCursor)    
+    synchronize_organizations(dbSage, myCursorSage, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

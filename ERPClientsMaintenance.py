@@ -52,6 +52,13 @@ MYSQL_DATABASE = os.environ['MYSQL_DATABASE']
 # Other constants
 CONN_TIMEOUT = 50
 
+# TO LOG ERRORS AND WARNINGS
+def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
+    sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
+    val = (str(GLAMSUITE_DEFAULT_COMPANY_ID), str(endPoint), str(ENVIRONMENT), str(message), str(typeLog))
+    mycursor.execute(sql, val)
+    dbOrigin.commit()  
+
 # TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
@@ -97,7 +104,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_clients(now, myCursor):
+def synchronize_clients(now, dbOrigin, myCursor):
     logging.info('   Processing clients from origin ERP (Pipedrive)')
 
     try:
@@ -115,7 +122,9 @@ def synchronize_clients(now, myCursor):
             response = get_req.json()
 
             if not response["success"]:
-                logging.error('   Not success call to Pipedrive api')
+                message = '   Not success call to Pipedrive api'
+                save_log_database(dbOrigin, myCursor, "ERPClientsMaintenance", message, "ERROR")
+                logging.error(message)
                 send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
                 sys.exit(1)
             else:                
@@ -125,7 +134,9 @@ def synchronize_clients(now, myCursor):
                     helper = replaceCharacters(str(data["org_name"]).strip(), [".",",","-","'"," "], True)    
                     glam_id, old_data_hash = get_value_from_database_helper(myCursor, 'Organizations ERP GF', 'Sage', helper)
                     if glam_id is None: 
-                        logging.warning('Organization not found on the helper column of ERPIntegration: ' + str(helper))
+                        message = 'Organization not found on the helper column of ERPIntegration: ' + str(helper)
+                        save_log_database(dbOrigin, myCursor, 'ERPClientsMaintenance', message, "WARNING")
+                        logging.warning(message)
                         continue # if not found, this contact is not used. Next!
 
                     _phone = "No informat"
@@ -186,7 +197,9 @@ def synchronize_clients(now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing clients from original ERP (Pipedrive): ' + str(e))
+        message = '   Unexpected error when processing clients from original ERP (Pipedrive): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPClientsMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         sys.exit(1)
 
@@ -214,7 +227,7 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    synchronize_clients(now, myCursor)    
+    synchronize_clients(now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPClientsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

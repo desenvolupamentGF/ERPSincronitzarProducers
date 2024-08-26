@@ -52,6 +52,12 @@ EMMEGI_MYSQL_PASSWORD = os.environ['EMMEGI_MYSQL_PASSWORD']
 EMMEGI_MYSQL_HOST = os.environ['EMMEGI_MYSQL_HOST']
 EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
 
+def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
+    sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
+    val = (str(GLAMSUITE_DEFAULT_COMPANY_ID), str(endPoint), str(ENVIRONMENT), str(message), str(typeLog))
+    mycursor.execute(sql, val)
+    dbOrigin.commit()  
+
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
     myresult = mycursor.fetchall()
@@ -81,7 +87,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor):
+def synchronize_users(dbEmmegi, myCursorEmmegi, now, dbOrigin, myCursor):
     logging.info('   Processing users from origin ERP (Emmegi)')
 
     # processing users from origin ERP (Emmegi)
@@ -133,7 +139,9 @@ def synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing users from original ERP (Emmegi): ' + str(e))
+        message = '   Unexpected error when processing users from original ERP (Emmegi): ' + str(e)
+        save_log_database(dbOrigin, myCursor, 'ERPUsersMaintenance', message, "ERROR")
+        logging.error(message)
         send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(dbEmmegi)
         sys.exit(1)
@@ -168,12 +176,14 @@ def main():
         dbEmmegi = connectMySQL(EMMEGI_MYSQL_USER, EMMEGI_MYSQL_PASSWORD, EMMEGI_MYSQL_HOST, EMMEGI_MYSQL_DATABASE)
         myCursorEmmegi = dbEmmegi.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to Emmegi MySQL database: ' + str(e))
+        message = '   Unexpected error when connecting to Emmegi MySQL database: ' + str(e)
+        save_log_database(db, myCursor, 'ERPUsersMaintenance', message, "ERROR")
+        logging.error(message)
         send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-    synchronize_users(dbEmmegi, myCursorEmmegi, now, myCursor)    
+    synchronize_users(dbEmmegi, myCursorEmmegi, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPUsersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

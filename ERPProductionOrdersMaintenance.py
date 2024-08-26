@@ -60,6 +60,13 @@ ACCESS_NONO = os.environ['ACCESS_NONO']
 # Other constants
 YEARS_TO_RECALCULATE = 3
 
+# TO LOG ERRORS AND WARNINGS
+def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
+    sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
+    val = (str(GLAMSUITE_DEFAULT_COMPANY_ID), str(endPoint), str(ENVIRONMENT), str(message), str(typeLog))
+    mycursor.execute(sql, val)
+    dbOrigin.commit()  
+
 # TO BE USED WHEN NEEDED
 def get_value_from_database(mycursor, correlation_id: str, url, endPoint, origin):
     mycursor.execute("SELECT erpGFId, hash FROM ERP_GF.ERPIntegration WHERE companyId = '" + str(GLAMSUITE_DEFAULT_COMPANY_ID) + "' AND endpoint = '" + str(endPoint) + "' AND origin = '" + str(origin) + "' AND correlationId = '" + str(correlation_id).replace("'", "''") + "' AND deploy = " + str(ENVIRONMENT) + " AND callType = '" + str(url) + "'")
@@ -105,7 +112,7 @@ class RabbitPublisherService:
         if self.connection is not None and self.connection.is_open:
             self.connection.close()
 
-def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
+def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
     logging.info('   Processing production orders from origin ERP (Access-Nono)')
 
     # processing production orders from origin ERP (Access-Nono)
@@ -146,7 +153,9 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
                 # We need to get the worker GUID using the matricula.
                 _glam_id, _dni = get_value_from_database_helper(myCursor, 'Treballadors ERP GF', 'Sesame/Sage', str(_matricula))
                 if _glam_id is None: 
-                    logging.error('Matricula/code not found on the helper column of ERPIntegration. CHECK WHY: ' + str(_matricula))
+                    message = 'Matricula/code not found on the helper column of ERPIntegration. CHECK WHY: ' + str(_matricula)
+                    save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+                    logging.error(message)
                     continue # if not found, this worker is not used. Next!
 
                 workerTimes[_of].append(
@@ -205,7 +214,9 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        logging.error('   Unexpected error when processing production orders from original ERP (Access-Nono): ' + str(e))
+        message = '   Unexpected error when processing production orders from original ERP (Access-Nono): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectMySQL(dbNono)
         sys.exit(1)
@@ -240,12 +251,14 @@ def main():
         dbNono = connectAccess(ACCESS_NONO)
         myCursorNono = dbNono.cursor()
     except Exception as e:
-        logging.error('   Unexpected error when connecting to Nono Access database: ' + str(e))
+        message = '   Unexpected error when connecting to Nono Access database: ' + str(e)
+        save_log_database(db, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+        logging.error(message)
         send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
         disconnectAccess(dbNono)
         sys.exit(1)
 
-    synchronize_productionOrders(dbNono, myCursorNono, now, myCursor)    
+    synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
