@@ -174,7 +174,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
             seconds = remaining_seconds % 60
 
             data={
-                "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS",
+                "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_NONO",
                 "documentNumber": "OF/" + str(_of).strip(),
                 "startDate": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
                 "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
