@@ -741,10 +741,10 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                             minutes = remaining_seconds // 60
                             seconds = remaining_seconds % 60
                         
-                            # We need to get the worker GUID using the matricula.
+                            # We need to get the worker GUID using the NIF.
                             _glam_id, _dummy = get_value_from_database_helper(myCursor, 'Treballadors ERP GF', 'Sesame/Sage', str(data1["employee"]["nid"]))
                             if _glam_id is None: 
-                                message = 'Matricula/code not found on the helper column of ERPIntegration. CHECK WHY: ' + str(data1["employee"]["nid"])
+                                message = 'NIF not found on the correlationId column of ERPIntegration. CHECK WHY: ' + str(data1["employee"]["nid"])
                                 save_log_database(dbOrigin, myCursor, "ERPTreballadorsMaintenance", message, "ERROR")
                                 logging.error(message)
                                 continue # if not found, this worker is not used. Next!
