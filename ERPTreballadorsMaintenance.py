@@ -731,67 +731,68 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                             timeEntryOut = data1["timeEntryOut"]["date"]
                             _segundos = (datetime.datetime.strptime(timeEntryOut, "%Y-%m-%dT%H:%M:%S%z")-datetime.datetime.strptime(timeEntryIn, "%Y-%m-%dT%H:%M:%S%z")).total_seconds()
                         
-                            if _of not in workerTimes:
-                                workerTimes[_of] = []    
+                            if _segundos > 0:
+                                if _of not in workerTimes:
+                                    workerTimes[_of] = []    
                         
-                            total_seconds = _segundos
-                            durada = datetime.timedelta(seconds=total_seconds)
-                            hours = durada.days * 24 + durada.seconds // 3600
-                            remaining_seconds = durada.seconds % 3600
-                            minutes = remaining_seconds // 60
-                            seconds = remaining_seconds % 60
+                                total_seconds = _segundos
+                                durada = datetime.timedelta(seconds=total_seconds)
+                                hours = durada.days * 24 + durada.seconds // 3600
+                                remaining_seconds = durada.seconds % 3600
+                                minutes = remaining_seconds // 60
+                                seconds = remaining_seconds % 60
                         
-                            # We need to get the worker GUID using the NIF.
-                            _glam_id, _dummy = get_value_from_database_helper(myCursor, 'Treballadors ERP GF', 'Sesame/Sage', str(data1["employee"]["nid"]))
-                            if _glam_id is None: 
-                                message = 'NIF not found on the correlationId column of ERPIntegration. CHECK WHY: ' + str(data1["employee"]["nid"])
-                                save_log_database(dbOrigin, myCursor, "ERPTreballadorsMaintenance", message, "ERROR")
-                                logging.error(message)
-                                continue # if not found, this worker is not used. Next!
+                                # We need to get the worker GUID using the NIF.
+                                _glam_id, _dummy = get_value_from_database_helper(myCursor, 'Treballadors ERP GF', 'Sesame/Sage', str(data1["employee"]["nid"]))
+                                if _glam_id is None: 
+                                    message = 'NIF not found on the correlationId column of ERPIntegration. CHECK WHY: ' + str(data1["employee"]["nid"])
+                                    save_log_database(dbOrigin, myCursor, "ERPTreballadorsMaintenance", message, "ERROR")
+                                    logging.error(message)
+                                    continue # if not found, this worker is not used. Next!
 
-                            workerTimes[_of].append(
-                            {    
-                                "workerId": str(_glam_id).strip(), 
-                                "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
-                                "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
-                                "correlationId": str(_id).strip()
-                            })
+                                workerTimes[_of].append(
+                                {    
+                                    "workerId": str(_glam_id).strip(), 
+                                    "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                                    "correlationId": str(_id).strip()
+                                })
                         
-                            data={
-                                "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
-                                "documentNumber": "OF/" + str(_of).strip(),
-                                "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
-                                "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
-                                "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
-                                "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
-                                "quantity": "1",
-                                "name": str(name).strip(),
-                                "description": str(_descripcion).strip(),
-                                "duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
-                                "securityMargin": "00:10:00", # 10 minuts
-                                "startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
-                                "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
-                                "routingOperationId": str(routingOperationId).strip(),
-                                "workerTimes": workerTimes.get(_of, []),                
-                                "correlationId": "OF/" + str(_of).strip()
-                            }
+                                data={
+                                    "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
+                                    "documentNumber": "OF/" + str(_of).strip(),
+                                    "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                                    "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
+                                    "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
+                                    "quantity": "1",
+                                    "name": str(name).strip(),
+                                    "description": str(_descripcion).strip(),
+                                    "duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                                    "securityMargin": "00:10:00", # 10 minuts
+                                    "startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                                    "routingOperationId": str(routingOperationId).strip(),
+                                    "workerTimes": workerTimes.get(_of, []),                
+                                    "correlationId": "OF/" + str(_of).strip()
+                                }
                         
-                            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-                            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                            glam_id, old_data_hash = get_value_from_database(myCursor, str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
+                                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                                glam_id, old_data_hash = get_value_from_database(myCursor, str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
                         
-                            if glam_id is None or str(old_data_hash) != str(data_hash):
+                                if glam_id is None or str(old_data_hash) != str(data_hash):
 
-                                logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+                                    logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
 
-                                # Sending message to queue
-                                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+                                    # Sending message to queue
+                                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
 
-                                j += 1
+                                    j += 1
 
-                            i += 1
-                            if i % 1000 == 0:
-                                logging.info('      ' + str(i) + ' synchronized production orders...')   
+                                i += 1
+                                if i % 1000 == 0:
+                                    logging.info('      ' + str(i) + ' synchronized production orders...')   
 
             meta1 = response1["meta"]
             if str(meta1["lastPage"]) == str(page1):
