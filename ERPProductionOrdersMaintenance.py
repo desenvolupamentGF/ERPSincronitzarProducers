@@ -189,7 +189,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                 "routingOperationId": str(routingOperationId).strip(),
                 "workerTimes": workerTimes.get(_of, []),                
-                "correlationId": str(_of).strip()
+                "correlationId": "OF/" + str(_of).strip()
             }
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 

@@ -721,7 +721,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
             for data1 in response1["data"]:
                 _id = data1["id"]
                 if data1["project"] != None:
-                    _of = "OF" + data1["project"]["name"][2:7] + "-Sésame"
+                    _of = data1["project"]["name"][2:7] + "-Sésame"
                     _fechaPrevista = data1["project"]["createdAt"]
                     _descripcion = data1["comment"]
                 
@@ -773,7 +773,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                 "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                                 "routingOperationId": str(routingOperationId).strip(),
                                 "workerTimes": workerTimes.get(_of, []),                
-                                "correlationId": str(_of).strip()
+                                "correlationId": "OF/" + str(_of).strip()
                             }
                         
                             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
