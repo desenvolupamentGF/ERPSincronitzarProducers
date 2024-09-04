@@ -754,7 +754,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                 "workerId": str(_glam_id).strip(), 
                                 "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
                                 "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
-                                "correlationId": str(_id).strip() 
+                                "correlationId": str(_id).strip()
                             })
                         
                             data={
