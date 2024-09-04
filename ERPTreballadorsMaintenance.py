@@ -721,7 +721,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
             for data1 in response1["data"]:
                 _id = data1["id"]
                 if data1["project"] != None:
-                    _of = data1["project"]["name"][0:7] + "-Sésame"
+                    _of = "OF" + data1["project"]["name"][2:7] + "-Sésame"
                     _fechaPrevista = data1["project"]["createdAt"]
                     _descripcion = data1["comment"]
                 
