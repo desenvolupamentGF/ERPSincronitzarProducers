@@ -36,6 +36,8 @@ GLAMSUITE_DEFAULT_PRODUCT_ID = os.environ['GLAMSUITE_DEFAULT_PRODUCT_ID']
 GLAMSUITE_DEFAULT_PROCESS_SHEET_ID = os.environ['GLAMSUITE_DEFAULT_PROCESS_SHEET_ID']
 GLAMSUITE_DEFAULT_ROUTING_OPERATION_ALUMINI_ID = os.environ['GLAMSUITE_DEFAULT_ROUTING_OPERATION_ALUMINI_ID']
 GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID = os.environ['GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID']
+GLAMSUITE_DEFAULT_WAREHOUSE_ALUMINI_ID = os.environ['GLAMSUITE_DEFAULT_WAREHOUSE_ALUMINI_ID']
+GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID = os.environ['GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -131,9 +133,11 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
 
             name = "Fabricació alumini"
             routingOperationId = GLAMSUITE_DEFAULT_ROUTING_OPERATION_ALUMINI_ID
+            warehouseId = GLAMSUITE_DEFAULT_WAREHOUSE_ALUMINI_ID
             if _tipo == "FERRO":
                 name = "Fabricació ferro"
                 routingOperationId = GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID
+                warehouseId = GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID
 
             if _of not in workerTimes:
                 workerTimes[_of] = []    
@@ -189,6 +193,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                     "startTime": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
                     "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                     "routingOperationId": str(routingOperationId).strip(),
+                    "warehouseId": str(warehouseId).strip(),
                     "workerTimes": workerTimes.get(_of, []),                
                     "correlationId": "OF/" + str(_of).strip()
                 }

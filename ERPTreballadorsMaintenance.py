@@ -66,6 +66,7 @@ GLAMSUITE_DEFAULT_SHIFT_ID_4h = os.environ['GLAMSUITE_DEFAULT_SHIFT_ID_4h']
 GLAMSUITE_DEFAULT_PRODUCT_ID = os.environ['GLAMSUITE_DEFAULT_PRODUCT_ID']
 GLAMSUITE_DEFAULT_PROCESS_SHEET_ID = os.environ['GLAMSUITE_DEFAULT_PROCESS_SHEET_ID']
 GLAMSUITE_DEFAULT_ROUTING_OPERATION_SESAME_ID = os.environ['GLAMSUITE_DEFAULT_ROUTING_OPERATION_SESAME_ID']
+GLAMSUITE_DEFAULT_WAREHOUSE_SESAME_ID = os.environ['GLAMSUITE_DEFAULT_WAREHOUSE_SESAME_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -695,6 +696,8 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
 
         name = "Producció Sésame"
         routingOperationId = GLAMSUITE_DEFAULT_ROUTING_OPERATION_SESAME_ID
+        warehouseId = GLAMSUITE_DEFAULT_WAREHOUSE_SESAME_ID
+
         workerTimes = {}  
 
         i = 0
@@ -773,6 +776,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                     "startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
                                     "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                                     "routingOperationId": str(routingOperationId).strip(),
+                                    "warehouseId": str(warehouseId).strip(),
                                     "workerTimes": workerTimes.get(_of, []),                
                                     "correlationId": "OF/" + str(_of).strip()
                                 }
