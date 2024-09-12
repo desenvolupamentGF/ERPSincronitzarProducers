@@ -27,6 +27,7 @@ import os
 # End points URLs
 URL_PAYMENTMETHODS = '/paymentMethods'
 URL_ORGANIZATIONS = '/organizations'
+URL_PROJECTS = '/projects'
 
 # Glam Suite constants
 GLAMSUITE_DEFAULT_COMPANY_ID = os.environ['GLAMSUITE_DEFAULT_COMPANY_ID']
@@ -41,6 +42,9 @@ GLAMSUITE_DEFAULT_CARRIER_ID = os.environ['GLAMSUITE_DEFAULT_CARRIER_ID']
 GLAMSUITE_DEFAULT_INCOTERM_ID = os.environ['GLAMSUITE_DEFAULT_INCOTERM_ID']
 GLAMSUITE_DEFAULT_RATE_ID_CLIENT = os.environ['GLAMSUITE_DEFAULT_RATE_ID_CLIENT']
 GLAMSUITE_DEFAULT_RATE_ID_PROVEIDOR = os.environ['GLAMSUITE_DEFAULT_RATE_ID_PROVEIDOR']
+
+GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID']
+GLAMSUITE_DEFAULT_ORGANIZATION_ID = os.environ['GLAMSUITE_DEFAULT_ORGANIZATION_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -57,6 +61,14 @@ SAGE_SQLSERVER_USER = os.environ['SAGE_SQLSERVER_USER']
 SAGE_SQLSERVER_PASSWORD = os.environ['SAGE_SQLSERVER_PASSWORD']
 SAGE_SQLSERVER_HOST = os.environ['SAGE_SQLSERVER_HOST']
 SAGE_SQLSERVER_DATABASE = os.environ['SAGE_SQLSERVER_DATABASE']
+
+TEOWIN_SQLSERVER_USER = os.environ['TEOWIN_SQLSERVER_USER']
+TEOWIN_SQLSERVER_PASSWORD = os.environ['TEOWIN_SQLSERVER_PASSWORD']
+TEOWIN_SQLSERVER_HOST = os.environ['TEOWIN_SQLSERVER_HOST']
+TEOWIN_SQLSERVER_DATABASE = os.environ['TEOWIN_SQLSERVER_DATABASE']
+
+# Other constants
+YEARS_TO_RECALCULATE = 3
 
 def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
     sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
@@ -348,6 +360,62 @@ def synchronize_organizations(dbSage, myCursorSage, now, dbOrigin, myCursor):
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
+def synchronize_projects(dbTeowin, myCursorTeowin, now, dbOrigin, myCursor):
+    logging.info('   Processing projects/obres/ot''s from origin ERP (Teowin)')
+
+    # processing projects/obres/ot's from origin ERP (Teowin)
+    try:
+        myCursorTeowin.execute("SELECT OT, NomObra, FechaAdjudicacion " \
+                               "FROM [GF3D].dbo.tObras " \
+                               "WHERE Estado = 'A' OR FechaAdjudicacion > GETDATE() - (365 * " + str(YEARS_TO_RECALCULATE) + ") ")
+
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        for _OT, _nomObra, _fechaAdjudicacion in myCursorTeowin.fetchall():
+
+            data={
+                "queueType": "ORGANIZATIONS_PROJECTS",
+                "code": str(_OT).strip(),
+                "name": str(_nomObra).strip(),
+                "organizationId": GLAMSUITE_DEFAULT_ORGANIZATION_ID,
+                "documentTypeId": GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID,
+                "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
+                "date": _fechaAdjudicacion.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "correlationId": str(_OT).strip(),
+            }
+
+            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_OT).strip(), URL_PROJECTS, "Organizations ERP GF", "Teowin")
+
+            if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                logging.info('      Processing project/Obra/OT: ' + str(_OT).strip() + ' ...') 
+
+                # Sending message to queue
+                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                j += 1
+
+            i += 1
+            if i % 1000 == 0:
+                logging.info('      ' + str(i) + ' synchronized projects/obres/OT''s...')    
+        logging.info('      Total synchronized projects/obres/OT''s: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        message = '   Unexpected error when processing projects/obres/OT''s from original ERP (Teowin): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+        logging.error(message)
+        send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectSQLServer(dbTeowin)
+        sys.exit(1)
+
 def main():
 
     executionResult = "OK"
@@ -385,8 +453,22 @@ def main():
         disconnectSQLServer(dbSage)
         sys.exit(1)
 
+    # connecting to Teowin database (SQLServer)
+    dbTeowin = None
+    try:
+        dbTeowin = connectSQLServer(TEOWIN_SQLSERVER_USER, TEOWIN_SQLSERVER_PASSWORD, TEOWIN_SQLSERVER_HOST, TEOWIN_SQLSERVER_DATABASE)
+        myCursorTeowin = dbTeowin.cursor()
+    except Exception as e:
+        message = '   Unexpected error when connecting to SQLServer Teowin database: ' + str(e)
+        save_log_database(db, myCursor, "ERPOrganizationsMaintenance", message, "ERROR")
+        logging.error(message)
+        send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectSQLServer(dbSage)
+        sys.exit(1)
+
     synchronize_paymentMethods(dbSage, myCursorSage, now, db, myCursor)    
     synchronize_organizations(dbSage, myCursorSage, now, db, myCursor)    
+    #synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
