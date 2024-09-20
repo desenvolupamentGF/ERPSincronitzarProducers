@@ -378,13 +378,13 @@ def synchronize_projects(dbTeowin, myCursorTeowin, now, dbOrigin, myCursor):
 
             data={
                 "queueType": "ORGANIZATIONS_PROJECTS",
-                "code": str(_OT).strip(),
+                "code": "OT/" + str(_OT).strip(),
                 "name": str(_nomObra).strip(),
                 "organizationId": GLAMSUITE_DEFAULT_ORGANIZATION_ID,
                 "documentTypeId": GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID,
                 "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
                 "date": _fechaAdjudicacion.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "correlationId": str(_OT).strip(),
+                "correlationId": "OT/" + str(_OT).strip(),
             }
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
@@ -468,7 +468,7 @@ def main():
 
     synchronize_paymentMethods(dbSage, myCursorSage, now, db, myCursor)    
     synchronize_organizations(dbSage, myCursorSage, now, db, myCursor)    
-    #synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
+    synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
