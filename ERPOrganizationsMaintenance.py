@@ -468,7 +468,7 @@ def main():
 
     synchronize_paymentMethods(dbSage, myCursorSage, now, db, myCursor)    
     synchronize_organizations(dbSage, myCursorSage, now, db, myCursor)    
-    synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
+    #synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
