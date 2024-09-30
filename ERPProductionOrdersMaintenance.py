@@ -182,12 +182,12 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                         "correlationId": str(_id).strip() # row number in the access
                     })
 
-                    total_seconds = _duration
-                    durada = datetime.timedelta(seconds=total_seconds)
-                    hours = durada.days * 24 + durada.seconds // 3600
-                    remaining_seconds = durada.seconds % 3600
-                    minutes = remaining_seconds // 60
-                    seconds = remaining_seconds % 60
+                    #total_seconds = _duration
+                    #durada = datetime.timedelta(seconds=total_seconds)
+                    #hours = durada.days * 24 + durada.seconds // 3600
+                    #remaining_seconds = durada.seconds % 3600
+                    #minutes = remaining_seconds // 60
+                    #seconds = remaining_seconds % 60
 
                 data={
                     "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_NONO",
