@@ -479,10 +479,12 @@ def main():
     logging.info('')
 
     # Closing databases
-    db.close()
     myCursor.close()
     myCursorSage.close()
+    myCursorTeowin.close()
+    db.close()
     dbSage.close()
+    dbTeowin.close()
 
     sys.exit(0)
 
