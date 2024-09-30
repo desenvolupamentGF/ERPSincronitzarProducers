@@ -45,6 +45,7 @@ GLAMSUITE_DEFAULT_RATE_ID_PROVEIDOR = os.environ['GLAMSUITE_DEFAULT_RATE_ID_PROV
 
 GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID']
 GLAMSUITE_DEFAULT_ORGANIZATION_ID = os.environ['GLAMSUITE_DEFAULT_ORGANIZATION_ID']
+GLAMSUITE_DEFAULT_RESERVATION_TYPE_ID = os.environ['GLAMSUITE_DEFAULT_RESERVATION_TYPE_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -384,6 +385,7 @@ def synchronize_projects(dbTeowin, myCursorTeowin, now, dbOrigin, myCursor):
                 "documentTypeId": GLAMSUITE_DEFAULT_DOCUMENT_TYPE_ID,
                 "companyId": GLAMSUITE_DEFAULT_COMPANY_ID,
                 "date": _fechaAdjudicacion.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "reservationTypeId": GLAMSUITE_DEFAULT_RESERVATION_TYPE_ID,
                 "correlationId": "OT/" + str(_OT).strip(),
             }
 
@@ -468,7 +470,7 @@ def main():
 
     synchronize_paymentMethods(dbSage, myCursorSage, now, db, myCursor)    
     synchronize_organizations(dbSage, myCursorSage, now, db, myCursor)    
-    #synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
+    synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
 
     # Send email with execution summary
     send_email("ERPOrganizationsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
