@@ -57,7 +57,14 @@ EMMEGI_MYSQL_HOST = os.environ['EMMEGI_MYSQL_HOST']
 EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
 
 # Database constants
-ACCESS_NONO = os.environ['ACCESS_NONO']
+# NOTE: We exported Nono database from Access to MySQL
+#ACCESS_NONO = os.environ['ACCESS_NONO']
+
+# Database constants
+MYSQL_NONO_USER = os.environ['MYSQL_NONO_USER']
+MYSQL_NONO_PASSWORD = os.environ['MYSQL_NONO_PASSWORD']
+MYSQL_NONO_HOST = os.environ['MYSQL_NONO_HOST']
+MYSQL_NONO_DATABASE = os.environ['MYSQL_NONO_DATABASE']
 
 # Other constants
 YEARS_TO_RECALCULATE = 3
@@ -121,7 +128,9 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
     try:
         # loop over the production orders (following WHERE conditions agreed with Nono as to get all the active OFs)
         # plus all OFs created in the last 3 years
-        myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
+        # NOTE: We exported Nono database from Access to MySQL 
+        #myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
+        myCursorNono.execute("SELECT `Of`, FechaPrevista, Tipo, Descripcion, ROUND(IFNULL(CORTE_CargaHoras*3600, 0)+IFNULL(MECANIZADO_CargaHoras*3600, 0)+IFNULL(MATRICERIA_CargaHoras*3600, 0)+IFNULL(ENSAMBLADO_CargaHoras*3600, 0)+IFNULL(VIDRIO_CargaHoras*3600, 0), 2) FROM BDBTMO.`OFS PRESUPUESTADO` WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= DATE_SUB(NOW(), INTERVAL 365 * " + str(YEARS_TO_RECALCULATE) + " DAY)) ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
@@ -143,7 +152,9 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 workerTimes[_of] = []    
 
             # Worker Times Tickets
-            myCursorNono.execute("SELECT IdDiario, Matricula, Data, IIF(ISNULL([Taper Seg]), 0, [Taper Seg]) FROM [Diario] WHERE Matricula <> 0 AND Of = '" + str(_of) + "' ") 
+            # NOTE: We exported Nono database from Access to MySQL 
+            #myCursorNono.execute("SELECT IdDiario, Matricula, Data, IIF(ISNULL([Taper Seg]), 0, [Taper Seg]) FROM [Diario] WHERE Matricula <> 0 AND Of = '" + str(_of) + "' ") 
+            myCursorNono.execute("SELECT IdDiario, Matricula, Data, IFNULL(`Taper Seg`, 0) FROM BDBTMO.DIARIO WHERE Matricula <> 0 AND `Of` = '" + str(_of) + "' ") 
 
             for _id, _matricula, _data, _segundos in myCursorNono.fetchall():
 
@@ -181,17 +192,19 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 data={
                     "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_NONO",
                     "documentNumber": "OF/" + str(_of).strip(),
-                    "startDate": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
                     "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                     "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
                     "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
                     "quantity": "1",
                     "name": str(name).strip(),
                     "description": str(_descripcion).strip(),
-                    "duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                    #"duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                    "duration": "04:00:00", # 4 hores
                     "securityMargin": "00:10:00", # 10 minuts
-                    "startTime": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                    #"startTime": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
+                    "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
                     "routingOperationId": str(routingOperationId).strip(),
                     "warehouseId": str(warehouseId).strip(),
                     "workerTimes": workerTimes.get(_of, []),                
@@ -253,16 +266,28 @@ def main():
         sys.exit(1)
 
     # connecting to origin database (Nono - Access)
+    # NOTE: We exported Nono database from Access to MySQL
+    #dbNono = None
+    #try:
+    #    dbNono = connectAccess(ACCESS_NONO)
+    #    myCursorNono = dbNono.cursor()
+    #except Exception as e:
+    #    message = '   Unexpected error when connecting to Nono Access database: ' + str(e)
+    #    save_log_database(db, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+    #    logging.error(message)
+    #    send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+    #    disconnectAccess(dbNono)
+    #    sys.exit(1)
+
+    # connecting to origin database (Nono - MySQL)
     dbNono = None
     try:
-        dbNono = connectAccess(ACCESS_NONO)
-        myCursorNono = dbNono.cursor()
+        dbNono = connectMySQL(MYSQL_NONO_USER, MYSQL_NONO_PASSWORD, MYSQL_NONO_HOST, MYSQL_NONO_DATABASE)
+        myCursorNono = db.cursor()
     except Exception as e:
-        message = '   Unexpected error when connecting to Nono Access database: ' + str(e)
-        save_log_database(db, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
-        logging.error(message)
+        logging.error('   Unexpected error when connecting to Nono MySQL database: ' + str(e))
         send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectAccess(dbNono)
+        disconnectMySQL(db)
         sys.exit(1)
 
     synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    

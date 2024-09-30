@@ -764,17 +764,19 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                 data={
                                     "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
                                     "documentNumber": "OF/" + str(_of).strip(),
-                                    "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
                                     "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                                     "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
                                     "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
                                     "quantity": "1",
                                     "name": str(name).strip(),
                                     "description": str(_descripcion).strip(),
-                                    "duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                                    #"duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                                    "duration": "04:00:00", # 4 hores
                                     "securityMargin": "00:10:00", # 10 minuts
-                                    "startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "endTime": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                                    #"startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
+                                    "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
                                     "routingOperationId": str(routingOperationId).strip(),
                                     "warehouseId": str(warehouseId).strip(),
                                     "workerTimes": workerTimes.get(_of, []),                
@@ -868,7 +870,7 @@ def main():
 
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 1) # Active workers    
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 0) # Not active workers    
-    #synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
+    synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
