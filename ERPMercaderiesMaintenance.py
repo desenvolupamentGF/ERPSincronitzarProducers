@@ -21,7 +21,7 @@ import pika
 # extra imports
 import sys
 import datetime
-from utils import send_email, connectMySQL, disconnectMySQL
+from utils import send_email, connectSQLServer, disconnectSQLServer, connectMySQL, disconnectMySQL
 import os
 
 # End points URLs
@@ -51,6 +51,14 @@ EMMEGI_MYSQL_USER = os.environ['EMMEGI_MYSQL_USER']
 EMMEGI_MYSQL_PASSWORD = os.environ['EMMEGI_MYSQL_PASSWORD']
 EMMEGI_MYSQL_HOST = os.environ['EMMEGI_MYSQL_HOST']
 EMMEGI_MYSQL_DATABASE = os.environ['EMMEGI_MYSQL_DATABASE']
+
+TEOWIN_SQLSERVER_USER = os.environ['TEOWIN_SQLSERVER_USER']
+TEOWIN_SQLSERVER_PASSWORD = os.environ['TEOWIN_SQLSERVER_PASSWORD']
+TEOWIN_SQLSERVER_HOST = os.environ['TEOWIN_SQLSERVER_HOST']
+TEOWIN_SQLSERVER_DATABASE = os.environ['TEOWIN_SQLSERVER_DATABASE']
+
+# Other constants
+YEARS_TO_RECALCULATE = 3
 
 def save_log_database(dbOrigin, mycursor, endPoint, message, typeLog):
     sql = "INSERT INTO ERP_GF.ERPIntegrationLog (dateLog, companyId, endpoint, deploy, message, typeLog) VALUES (NOW(), %s, %s, %s, %s, %s) "
@@ -142,37 +150,39 @@ def synchronize_families(dbEmmegi, myCursorEmmegi, now, dbOrigin, myCursor):
         disconnectMySQL(dbEmmegi)
         sys.exit(1)
 
-def synchronize_projects(dbEmmegi, myCursorEmmegi, now, dbOrigin, myCursor):
-    logging.info('   Processing projects from origin ERP (Emmegi)') 
+def synchronize_projects(dbTeowin, myCursorTeowin, now, dbOrigin, myCursor):
+    logging.info('   Processing projects from origin ERP (Teowin)') 
 
-    # processing projects from origin ERP (Emmegi)
+    # processing projects from origin ERP (Teowin)
     try:
         # loop over the projects
-        myCursorEmmegi.execute("SELECT pkid, ragsoc FROM fp_pro32.fp_codtabindirizzi")
+        myCursorTeowin.execute("SELECT OT, NomObra " \
+                               "FROM [GF3D].dbo.tObras " \
+                               "WHERE Estado = 'A' OR FechaAdjudicacion > GETDATE() - (365 * " + str(YEARS_TO_RECALCULATE) + ") ")
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
         i = 0
         j = 0
-        for _id, _description in myCursorEmmegi.fetchall():
+        for _id, _description in myCursorTeowin.fetchall():
 
             data={
                 "queueType": "MERCADERIES_PROJECTES",
                 "correlationId": str(_id).strip(),
                 "zoneId": str(GLAMSUITE_DEFAULT_ZONE_ID),
                 "containerTypeId": str(GLAMSUITE_DEFAULT_CONTAINER_TYPE_ID),
-                "description": str(_description).strip(),
-                "aisle": "A",
-                "rack": "A",
-                "shelf": "A",                
+                "description": "OT/" + str(_id).strip() + " - " + str(_description).strip(),
+                "aisle": "0",
+                "rack": "0",
+                "shelf": "0",                
                 "position": str(_id).strip(),
                 "preferential": False
             }       
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id).strip(), URL_LOCATIONS, "Mercaderies ERP GF", "Emmegi")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id).strip(), URL_LOCATIONS, "Mercaderies ERP GF", "Teowin")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -192,11 +202,11 @@ def synchronize_projects(dbEmmegi, myCursorEmmegi, now, dbOrigin, myCursor):
         myRabbitPublisherService.close()
 
     except Exception as e:
-        message = '   Unexpected error when processing projects from original ERP (Emmegi): ' + str(e)
+        message = '   Unexpected error when processing projects from original ERP (Teowin): ' + str(e)
         save_log_database(dbOrigin, myCursor, "ERPMercaderiesMaintenance", message, "ERROR")
         logging.error(message)
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(dbTeowin)
         sys.exit(1)
 
 def synchronize_products(dbEmmegi, myCursorEmmegi, now, dbOrigin, myCursor):
@@ -392,15 +402,28 @@ def main():
         dbEmmegi = connectMySQL(EMMEGI_MYSQL_USER, EMMEGI_MYSQL_PASSWORD, EMMEGI_MYSQL_HOST, EMMEGI_MYSQL_DATABASE)
         myCursorEmmegi = dbEmmegi.cursor()
     except Exception as e:
-        message = '   Unexpected error when connecting to MySQL database: ' + str(e)
+        message = '   Unexpected error when connecting to MySQL Ememgi database: ' + str(e)
         save_log_database(db, myCursor, "ERPMercaderiesMaintenance", message, "ERROR")
         logging.error(message)
         send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
-        disconnectMySQL(dbEmmegi)
+        disconnectMySQL(db)
+        sys.exit(1)
+
+    # connecting to Teowin database (SQLServer)
+    dbTeowin = None
+    try:
+        dbTeowin = connectSQLServer(TEOWIN_SQLSERVER_USER, TEOWIN_SQLSERVER_PASSWORD, TEOWIN_SQLSERVER_HOST, TEOWIN_SQLSERVER_DATABASE)
+        myCursorTeowin = dbTeowin.cursor()
+    except Exception as e:
+        message = '   Unexpected error when connecting to SQLServer Teowin database: ' + str(e)
+        save_log_database(db, myCursor, "ERPMercaderiesMaintenance", message, "ERROR")
+        logging.error(message)
+        send_email("ERPMercaderiesMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectSQLServer(db)
         sys.exit(1)
 
     synchronize_families(dbEmmegi, myCursorEmmegi, now, db, myCursor)
-    synchronize_projects(dbEmmegi, myCursorEmmegi, now, db, myCursor)
+    synchronize_projects(dbTeowin, myCursorTeowin, now, db, myCursor)
     synchronize_products(dbEmmegi, myCursorEmmegi, now, db, myCursor)    
 
     # Send email with execution summary
@@ -410,10 +433,12 @@ def main():
     logging.info('')
 
     # Closing database
-    myCursorEmmegi.close()
-    dbEmmegi.close()
     myCursor.close()
+    myCursorEmmegi.close()
+    myCursorTeowin.close()
     db.close()
+    dbEmmegi.close()
+    dbTeowin.close()
 
     sys.exit(0)
 
