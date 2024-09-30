@@ -391,7 +391,7 @@ def synchronize_projects(dbTeowin, myCursorTeowin, now, dbOrigin, myCursor):
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, str(_OT).strip(), URL_PROJECTS, "Organizations ERP GF", "Teowin")
+            glam_id, old_data_hash = get_value_from_database(myCursor, "OT/" + str(_OT).strip(), URL_PROJECTS, "Organizations ERP GF", "Teowin")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
