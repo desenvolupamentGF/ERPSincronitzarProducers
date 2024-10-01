@@ -213,7 +213,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursor, str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Access-Nono")
+                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Access-Nono")
 
                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
