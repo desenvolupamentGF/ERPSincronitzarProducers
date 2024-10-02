@@ -26,6 +26,7 @@ import os
 
 # End points URLs
 URL_PRODUCTIONORDERS = '/productionOrders'
+URL_OPERATIONS = '/operations'
 URL_WORKERTIMETICKETS = '/workerTimeTickets'
 
 # Glam Suite constants
@@ -221,6 +222,26 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
             if _of not in workerTimes:
                 workerTimes[_of] = []    
 
+            # Get Glam production order id.
+            glam_productionOrder_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS, endPoint="Production Orders ERP GF", origin="Access-Nono")
+            if glam_productionOrder_id is None:
+                message = 'Error sync:' + URL_PRODUCTIONORDERS + ":" + str(_of).strip() + " Missing production order."  
+                save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+                logging.error(message)
+                continue # skip this OF
+
+            productionOrderId = str(glam_productionOrder_id)
+
+            # Get Glam operation id.
+            glam_operation_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS + "/" + str(productionOrderId) + URL_OPERATIONS, endPoint="Production Orders ERP GF", origin="Access-Nono")
+            if glam_operation_id is None:
+                message = 'Error sync:' + URL_PRODUCTIONORDERS + ":" + str(_of).strip() + ", " + str(productionOrderId) + " Missing operation."  
+                save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+                logging.error(message)
+                continue # skip this OF
+
+            productionOrderOperationId = str(glam_operation_id)
+
             # Worker Times Tickets
             # NOTE: We exported Nono database from Access to MySQL 
             #myCursorNono.execute("SELECT IdDiario, Matricula, Data, IIF(ISNULL([Taper Seg]), 0, [Taper Seg]) FROM [Diario] WHERE Matricula <> 0 AND Of = '" + str(_of) + "' ") 
@@ -249,6 +270,8 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
                         "workerId": str(_glam_id).strip(), 
                         "startDate": _data.strftime("%Y-%m-%dT%H:%M:%S"),
                         "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                        "productionOrderId": productionOrderId,
+                        "productionOrderOperationId": productionOrderOperationId,
                         "correlationId": str(_id).strip() # row number in the access
                     })
 
@@ -267,7 +290,7 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
 
             #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
             data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
+            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
 
             if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -345,7 +368,7 @@ def main():
         sys.exit(1)
 
     synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
-    #synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
+    synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
