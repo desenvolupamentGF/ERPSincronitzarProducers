@@ -744,6 +744,7 @@ def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
                         "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
                         "routingOperationId": str(routingOperationId).strip(),
                         "warehouseId": str(warehouseId).strip(),
+                        "stateId": "1",
                         "correlationId": "OF/" + str(_of).strip()
                     }
                         

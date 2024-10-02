@@ -165,6 +165,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
                 "routingOperationId": str(routingOperationId).strip(),
                 "warehouseId": str(warehouseId).strip(),
+                "stateId": "1",
                 "correlationId": "OF/" + str(_of).strip()
             }
 
@@ -206,8 +207,8 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
         # loop over the production orders (following WHERE conditions agreed with Nono as to get all the active OFs)
         # plus all OFs created in the last 3 years
         # NOTE: We exported Nono database from Access to MySQL 
-        #myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
-        myCursorNono.execute("SELECT `Of`, FechaPrevista, Tipo, Descripcion, ROUND(IFNULL(CORTE_CargaHoras*3600, 0)+IFNULL(MECANIZADO_CargaHoras*3600, 0)+IFNULL(MATRICERIA_CargaHoras*3600, 0)+IFNULL(ENSAMBLADO_CargaHoras*3600, 0)+IFNULL(VIDRIO_CargaHoras*3600, 0), 2) FROM BDBTMO.`OFS PRESUPUESTADO` WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= DATE_SUB(NOW(), INTERVAL 365 * " + str(YEARS_TO_RECALCULATE) + " DAY)) ") 
+        #myCursorNono.execute("SELECT Of, Tipo FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
+        myCursorNono.execute("SELECT `Of`, Tipo FROM BDBTMO.`OFS PRESUPUESTADO` WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= DATE_SUB(NOW(), INTERVAL 365 * " + str(YEARS_TO_RECALCULATE) + " DAY)) ") 
 
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
@@ -215,7 +216,7 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
         i = 0
         j = 0
         workerTimes = {}         
-        for _of in myCursorNono.fetchall():
+        for _of, _tipo in myCursorNono.fetchall():
 
             if _of not in workerTimes:
                 workerTimes[_of] = []    
@@ -258,28 +259,28 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
                     #minutes = remaining_seconds // 60
                     #seconds = remaining_seconds % 60
 
-                data={
-                    "queueType": "PRODUCTIONORDERS_WORKINGTIMES_NONO",
-                    "workerTimes": workerTimes.get(_of, []),                
-                    "correlationId": "OF/" + str(_of).strip()
-                }
+            data={
+                "queueType": "PRODUCTIONORDERS_WORKINGTIMES_NONO",
+                "workerTimes": workerTimes.get(_of, []),                
+                "correlationId": "OF/" + str(_of).strip()
+            }
 
-                #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-                data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
+            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+            glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
 
-                if glam_id is None or str(old_data_hash) != str(data_hash):
+            if glam_id is None or str(old_data_hash) != str(data_hash):
 
-                    logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+                logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
 
-                    # Sending message to queue
-                    myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+                # Sending message to queue
+                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
 
-                    j += 1
+                j += 1
 
-                i += 1
-                if i % 1000 == 0:
-                    logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')
+            i += 1
+            if i % 1000 == 0:
+                logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')
                     
         logging.info('      Total synchronized workingTimeEntries: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')        
 
