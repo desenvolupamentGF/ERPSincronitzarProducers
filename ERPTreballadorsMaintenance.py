@@ -976,7 +976,7 @@ def main():
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 1) # Active workers    
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 0) # Not active workers    
     synchronize_productionOrders(now, db, myCursor, 1) # Active workers    
-    synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
+    #synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

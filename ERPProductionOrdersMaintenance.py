@@ -368,7 +368,7 @@ def main():
         sys.exit(1)
 
     synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
-    synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
+    #synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
