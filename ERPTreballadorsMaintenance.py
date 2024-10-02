@@ -708,6 +708,8 @@ def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
         if activeWorker == 0:
             status = "&employeeStatus=inactive"
 
+        ofs = [] # List to avoid duplicates
+
         while not endProcess1:
 
             headers = {
@@ -722,54 +724,58 @@ def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
 
             for data1 in response1["data"]:
 
-                _id = data1["id"]
                 if data1["project"] != None:
                     _of = data1["project"]["name"][2:7] + "-Sésame"
                     _fechaPrevista = data1["project"]["createdAt"]
-                    _descripcion = data1["comment"]
+                    _descripcion = data1["project"]["name"][10:]
 
-                    data={
-                        "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
-                        "documentNumber": "OF/" + str(_of).strip(),
-                        "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
-                        "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
-                        "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
-                        "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
-                        "quantity": "1",
-                        "name": str(name).strip(),
-                        "description": str(_descripcion).strip(),
-                        "duration": "04:00:00", # 4 hores
-                        "securityMargin": "00:10:00", # 10 minuts
-                        "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
-                        "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
-                        "routingOperationId": str(routingOperationId).strip(),
-                        "warehouseId": str(warehouseId).strip(),
-                        "stateId": "1",
-                        "correlationId": "OF/" + str(_of).strip()
-                    }
-                        
-                    #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-                    data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                    glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
-                        
-                    if glam_id is None or str(old_data_hash) != str(data_hash):
-
-                        logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
-
-                        # Sending message to queue
-                        myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
-
-                        j += 1
-
-                    i += 1
-                    if i % 1000 == 0:
-                        logging.info('      ' + str(i) + ' synchronized production orders...')   
+                    if {"of": _of, "descripcion": _descripcion} not in ofs: # To avoid duplicates
+                        ofs.append({"of": _of, "descripcion": _descripcion})
 
             meta1 = response1["meta"]
             if str(meta1["lastPage"]) == str(page1):
                 endProcess1 = True
             else:
                 page1 = page1 + 1       
+
+        for of in ofs:
+
+            data={
+                "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
+                "documentNumber": "OF/" + str(of["of"]).strip(),
+                "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
+                "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
+                "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
+                "quantity": "1",
+                "name": str(name).strip(),
+                "description": str(of["descripcion"]).strip(),
+                "duration": "04:00:00", # 4 hores
+                "securityMargin": "00:10:00", # 10 minuts
+                "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
+                "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
+                "routingOperationId": str(routingOperationId).strip(),
+                "warehouseId": str(warehouseId).strip(),
+                "stateId": "1",
+                "correlationId": "OF/" + str(of["of"]).strip()
+            }
+                        
+            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+            glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(of["of"]).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
+                        
+            if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                logging.info('      Processing production order ' + str(of["of"]).strip() + ' ...') 
+
+                # Sending message to queue
+                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                j += 1
+
+            i += 1
+            if i % 1000 == 0:
+                logging.info('      ' + str(i) + ' synchronized production orders...')   
 
         logging.info('      Total synchronized production orders: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
@@ -819,7 +825,6 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                 if data1["project"] != None:
                     _of = data1["project"]["name"][2:7] + "-Sésame"
                     _fechaPrevista = data1["project"]["createdAt"]
-                    _descripcion = data1["comment"]
                 
                     if data1["timeEntryIn"] != None:
                         timeEntryIn = data1["timeEntryIn"]["date"]
