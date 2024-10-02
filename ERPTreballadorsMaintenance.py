@@ -30,6 +30,7 @@ import os
 # End points URLs
 URL_WORKERS = '/workers'
 URL_PRODUCTIONORDERS = '/productionOrders'
+URL_OPERATIONS = '/operations'
 URL_WORKERTIMETICKETS = '/workerTimeTickets'
 
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
@@ -836,6 +837,26 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                 if _of not in workerTimes:
                                     workerTimes[_of] = []    
                         
+                                # Get Glam production order id.
+                                glam_productionOrder_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS, endPoint="Production Orders ERP GF", origin="Sesame")
+                                if glam_productionOrder_id is None:
+                                    message = 'Error sync:' + URL_PRODUCTIONORDERS + ":" + str(_of).strip() + " Missing production order."  
+                                    save_log_database(dbOrigin, myCursor, "ERPTreballadorsMaintenance", message, "ERROR")
+                                    logging.error(message)
+                                    continue # skip this OF
+
+                                productionOrderId = str(glam_productionOrder_id)
+
+                                # Get Glam operation id.
+                                glam_operation_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS + "/" + str(productionOrderId) + URL_OPERATIONS, endPoint="Production Orders ERP GF", origin="Sesame")
+                                if glam_operation_id is None:
+                                    message = 'Error sync:' + URL_PRODUCTIONORDERS + ":" + str(_of).strip() + ", " + str(productionOrderId) + " Missing operation."  
+                                    save_log_database(dbOrigin, myCursor, "ERPTreballadorsMaintenance", message, "ERROR")
+                                    logging.error(message)
+                                    continue # skip this OF
+
+                                productionOrderOperationId = str(glam_operation_id)
+
                                 total_seconds = _segundos
                                 durada = datetime.timedelta(seconds=total_seconds)
                                 hours = durada.days * 24 + durada.seconds // 3600
@@ -856,6 +877,8 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                     "workerId": str(_glam_id).strip(), 
                                     "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
                                     "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
+                                    "productionOrderId": productionOrderId,
+                                    "productionOrderOperationId": productionOrderOperationId,
                                     "correlationId": str(_id).strip()
                                 })
                         
@@ -867,7 +890,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                         
                                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Sesame")
+                                glam_id, old_data_hash = get_value_from_database(myCursor, str(_id), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Sesame")
                         
                                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -953,7 +976,7 @@ def main():
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 1) # Active workers    
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 0) # Not active workers    
     synchronize_productionOrders(now, db, myCursor, 1) # Active workers    
-    #synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
+    synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
