@@ -26,6 +26,7 @@ import os
 
 # End points URLs
 URL_PRODUCTIONORDERS = '/productionOrders'
+URL_WORKERTIMETICKETS = '/workerTimeTickets'
 
 # Glam Suite constants
 GLAMSUITE_DEFAULT_COMPANY_ID = os.environ['GLAMSUITE_DEFAULT_COMPANY_ID']
@@ -137,7 +138,6 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
 
         i = 0
         j = 0
-        workerTimes = {}         
         for _of, _fechaPrevista, _tipo, _descripcion, _duration in myCursorNono.fetchall():
 
             name = "Fabricació alumini"
@@ -147,6 +147,75 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 name = "Fabricació ferro"
                 routingOperationId = GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID
                 warehouseId = GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID
+
+            data={
+                "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_NONO",
+                "documentNumber": "OF/" + str(_of).strip(),
+                "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
+                "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
+                "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
+                "quantity": "1",
+                "name": str(name).strip(),
+                "description": str(_descripcion).strip(),
+                "duration": "04:00:00", # 4 hores
+                "securityMargin": "00:10:00", # 10 minuts
+                #"startTime": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
+                "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
+                "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
+                "routingOperationId": str(routingOperationId).strip(),
+                "warehouseId": str(warehouseId).strip(),
+                "correlationId": "OF/" + str(_of).strip()
+            }
+
+            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+            glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Access-Nono")
+
+            if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+
+                # Sending message to queue
+                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                j += 1
+
+            i += 1
+            if i % 1000 == 0:
+                logging.info('      ' + str(i) + ' synchronized production orders...')
+                    
+        logging.info('      Total synchronized production orders: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')        
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        message = '   Unexpected error when processing production orders from original ERP (Access-Nono): ' + str(e)
+        save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
+        logging.error(message)
+        send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        disconnectMySQL(dbNono)
+        sys.exit(1)
+
+def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor):
+    logging.info('   Processing workingTimeEntries from origin ERP (Access-Nono)')
+
+    # processing workingTimeEntries from origin ERP (Access-Nono)
+    try:
+        # loop over the production orders (following WHERE conditions agreed with Nono as to get all the active OFs)
+        # plus all OFs created in the last 3 years
+        # NOTE: We exported Nono database from Access to MySQL 
+        #myCursorNono.execute("SELECT Of, FechaPrevista, Tipo, Descripcion, ROUND(IIF(ISNULL(CORTE_CargaHoras), 0, CORTE_CargaHoras*3600)+IIF(ISNULL(MECANIZADO_CargaHoras), 0, MECANIZADO_CargaHoras*3600)+IIF(ISNULL(MATRICERIA_CargaHoras), 0, MATRICERIA_CargaHoras*3600)+IIF(ISNULL(ENSAMBLADO_CargaHoras), 0, ENSAMBLADO_CargaHoras*3600)+IIF(ISNULL(VIDRIO_CargaHoras), 0, VIDRIO_CargaHoras*3600), 2) FROM [OFS Presupuestado] WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= Date() - (365 * " + str(YEARS_TO_RECALCULATE) + ")) ") 
+        myCursorNono.execute("SELECT `Of`, FechaPrevista, Tipo, Descripcion, ROUND(IFNULL(CORTE_CargaHoras*3600, 0)+IFNULL(MECANIZADO_CargaHoras*3600, 0)+IFNULL(MATRICERIA_CargaHoras*3600, 0)+IFNULL(ENSAMBLADO_CargaHoras*3600, 0)+IFNULL(VIDRIO_CargaHoras*3600, 0), 2) FROM BDBTMO.`OFS PRESUPUESTADO` WHERE (Data_OK_Fabricacion IS NOT NULL AND Tipo IN ('ALU','FERRO') AND OfAcabada IS NULL) OR (FechaPrevista >= DATE_SUB(NOW(), INTERVAL 365 * " + str(YEARS_TO_RECALCULATE) + " DAY)) ") 
+
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
+
+        i = 0
+        j = 0
+        workerTimes = {}         
+        for _of in myCursorNono.fetchall():
 
             if _of not in workerTimes:
                 workerTimes[_of] = []    
@@ -190,30 +259,14 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                     #seconds = remaining_seconds % 60
 
                 data={
-                    "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_NONO",
-                    "documentNumber": "OF/" + str(_of).strip(),
-                    "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
-                    "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
-                    "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
-                    "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
-                    "quantity": "1",
-                    "name": str(name).strip(),
-                    "description": str(_descripcion).strip(),
-                    #"duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
-                    "duration": "04:00:00", # 4 hores
-                    "securityMargin": "00:10:00", # 10 minuts
-                    #"startTime": _fechaPrevista.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
-                    "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
-                    "routingOperationId": str(routingOperationId).strip(),
-                    "warehouseId": str(warehouseId).strip(),
+                    "queueType": "PRODUCTIONORDERS_WORKINGTIMES_NONO",
                     "workerTimes": workerTimes.get(_of, []),                
                     "correlationId": "OF/" + str(_of).strip()
                 }
 
                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Access-Nono")
+                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
 
                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -226,15 +279,15 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
 
                 i += 1
                 if i % 1000 == 0:
-                    logging.info('      ' + str(i) + ' synchronized production orders...')
+                    logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')
                     
-        logging.info('      Total synchronized production orders: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')        
+        logging.info('      Total synchronized workingTimeEntries: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')        
 
         # Closing queue
         myRabbitPublisherService.close()
 
     except Exception as e:
-        message = '   Unexpected error when processing production orders from original ERP (Access-Nono): ' + str(e)
+        message = '   Unexpected error when processing workingTimeEntries from original ERP (Access-Nono): ' + str(e)
         save_log_database(dbOrigin, myCursor, "ERPProductionOrdersMaintenance", message, "ERROR")
         logging.error(message)
         send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
@@ -290,7 +343,8 @@ def main():
         disconnectMySQL(db)
         sys.exit(1)
 
-    #synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
+    synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
+    #synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

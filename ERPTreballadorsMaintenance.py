@@ -30,6 +30,7 @@ import os
 # End points URLs
 URL_WORKERS = '/workers'
 URL_PRODUCTIONORDERS = '/productionOrders'
+URL_WORKERTIMETICKETS = '/workerTimeTickets'
 
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_EMPLOYEES_SESAME = "/core/v3/employees"
@@ -686,10 +687,10 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
         disconnectSQLServer(dbBiostar)
         sys.exit(1)
 
-def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
-    logging.info('   Processing workingTimeEntries from origin ERP (Sesame) --> ActiveWorked: ' + str(activeWorker))
+def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
+    logging.info('   Processing production orders from origin ERP (Sesame) --> ActiveWorked: ' + str(activeWorker))
 
-    # processing workingTimeEntries from origin ERP (Sesame)
+    # processing production orders from origin ERP (Sesame)
     try:
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
@@ -697,6 +698,97 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
         name = "Producció Sésame"
         routingOperationId = GLAMSUITE_DEFAULT_ROUTING_OPERATION_SESAME_ID
         warehouseId = GLAMSUITE_DEFAULT_WAREHOUSE_SESAME_ID
+
+        i = 0
+        j = 0
+        endProcess1 = False
+        page1 = 1        
+
+        status = "&employeeStatus=active"
+        if activeWorker == 0:
+            status = "&employeeStatus=inactive"
+
+        while not endProcess1:
+
+            headers = {
+                "Authorization": "Bearer " + TOKEN_API_SESAME, 
+                "Content-Type": "application/json"
+            }
+
+            strFrom = datetime.date.today() - datetime.timedelta(365 * YEARS_TO_RECALCULATE) 
+            get_req1 = requests.get(URL_API_SESAME + URL_TIMEENTRIES_SESAME + "?page=" + str(page1) + "&from=" + str(strFrom) + str(status), headers=headers,
+                                    verify=False, timeout=CONN_TIMEOUT)
+            response1 = get_req1.json()
+
+            for data1 in response1["data"]:
+                _id = data1["id"]
+                if data1["project"] != None:
+                    _of = data1["project"]["name"][2:7] + "-Sésame"
+                    _fechaPrevista = data1["project"]["createdAt"]
+                    _descripcion = data1["comment"]
+                
+                    data={
+                        "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
+                        "documentNumber": "OF/" + str(_of).strip(),
+                        "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
+                        "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
+                        "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
+                        "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
+                        "quantity": "1",
+                        "name": str(name).strip(),
+                        "description": str(_descripcion).strip(),
+                        "duration": "04:00:00", # 4 hores
+                        "securityMargin": "00:10:00", # 10 minuts
+                        #"startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
+                        "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
+                        "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
+                        "routingOperationId": str(routingOperationId).strip(),
+                        "warehouseId": str(warehouseId).strip(),
+                        "correlationId": "OF/" + str(_of).strip()
+                    }
+                        
+                    #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                    data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                    glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
+                        
+                    if glam_id is None or str(old_data_hash) != str(data_hash):
+
+                        logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+
+                        # Sending message to queue
+                        myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
+
+                        j += 1
+
+                    i += 1
+                    if i % 1000 == 0:
+                        logging.info('      ' + str(i) + ' synchronized production orders...')   
+
+            meta1 = response1["meta"]
+            if str(meta1["lastPage"]) == str(page1):
+                endProcess1 = True
+            else:
+                page1 = page1 + 1
+
+        logging.info('      Total synchronized production orders: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+
+        # Closing queue
+        myRabbitPublisherService.close()
+
+    except Exception as e:
+        message = '   Unexpected error when processing production orders from original ERP (Sesame): ' + str(e)
+        save_log_database(dbOrigin, myCursor, 'ERPTreballadorsMaintenance', message, "ERROR")
+        logging.error(message)
+        send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
+        sys.exit(1)
+
+def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
+    logging.info('   Processing workingTimeEntries from origin ERP (Sesame) --> ActiveWorked: ' + str(activeWorker))
+
+    # processing workingTimeEntries from origin ERP (Sesame)
+    try:
+        # Preparing message queue
+        myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
         workerTimes = {}  
 
@@ -762,30 +854,14 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                 })
                         
                                 data={
-                                    "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
-                                    "documentNumber": "OF/" + str(_of).strip(),
-                                    "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
-                                    "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
-                                    "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
-                                    "processSheetId": GLAMSUITE_DEFAULT_PROCESS_SHEET_ID,
-                                    "quantity": "1",
-                                    "name": str(name).strip(),
-                                    "description": str(_descripcion).strip(),
-                                    #"duration": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
-                                    "duration": "04:00:00", # 4 hores
-                                    "securityMargin": "00:10:00", # 10 minuts
-                                    #"startTime": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "startTime": "2024-01-01T08:00:00", # TO_DO TODO FELIX Valor provisional
-                                    "endTime": "2024-01-01T12:00:00", # TO_DO TODO FELIX Valor provisional
-                                    "routingOperationId": str(routingOperationId).strip(),
-                                    "warehouseId": str(warehouseId).strip(),
+                                    "queueType": "PRODUCTIONORDERS_WORKINGTIMES_SESAME",
                                     "workerTimes": workerTimes.get(_of, []),                
                                     "correlationId": "OF/" + str(_of).strip()
                                 }
                         
                                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
                                 data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-                                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_PRODUCTIONORDERS, "Production Orders ERP GF", "Sesame")
+                                glam_id, old_data_hash = get_value_from_database(myCursor, "OF/" + str(_of).strip(), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Sesame")
                         
                                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
@@ -806,13 +882,13 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
             else:
                 page1 = page1 + 1
 
-        logging.info('      Total synchronized production orders: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
+        logging.info('      Total synchronized workingTimeEntries: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')           
 
         # Closing queue
         myRabbitPublisherService.close()
 
     except Exception as e:
-        message = '   Unexpected error when processing production orders from original ERP (Sesame): ' + str(e)
+        message = '   Unexpected error when processing workingTimeEntries from original ERP (Sesame): ' + str(e)
         save_log_database(dbOrigin, myCursor, 'ERPTreballadorsMaintenance', message, "ERROR")
         logging.error(message)
         send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), "ERROR")
@@ -870,6 +946,7 @@ def main():
 
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 1) # Active workers    
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 0) # Not active workers    
+    synchronize_productionOrders(now, db, myCursor, 1) # Active workers    
     #synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
 
     # Send email with execution summary
