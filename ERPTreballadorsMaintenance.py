@@ -798,8 +798,6 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
         # Preparing message queue
         myRabbitPublisherService = RabbitPublisherService(RABBIT_URL, RABBIT_PORT, RABBIT_QUEUE)
 
-        workerTimes = {}  
-
         i = 0
         j = 0
         endProcess1 = False
@@ -834,8 +832,6 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                             _segundos = (datetime.datetime.strptime(timeEntryOut, "%Y-%m-%dT%H:%M:%S%z")-datetime.datetime.strptime(timeEntryIn, "%Y-%m-%dT%H:%M:%S%z")).total_seconds()
                         
                             if _segundos > 0:
-                                if _of not in workerTimes:
-                                    workerTimes[_of] = []    
                         
                                 # Get Glam production order id.
                                 glam_productionOrder_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS, endPoint="Production Orders ERP GF", origin="Sesame")
@@ -872,20 +868,15 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                                     logging.error(message)
                                     continue # if not found, this worker is not used. Next!
 
-                                workerTimes[_of].append(
-                                {    
+                                data={    
+                                    "queueType": "PRODUCTIONORDERS_WORKINGTIMES_SESAME",
+                                    "of": "OF/" + str(_of).strip(),
                                     "workerId": str(_glam_id).strip(), 
                                     "startDate": datetime.datetime.strptime(_fechaPrevista, "%Y-%m-%dT%H:%M:%S%z").strftime("%Y-%m-%dT%H:%M:%S"),
                                     "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
                                     "productionOrderId": productionOrderId,
                                     "productionOrderOperationId": productionOrderOperationId,
                                     "correlationId": str(_id).strip()
-                                })
-                        
-                                data={
-                                    "queueType": "PRODUCTIONORDERS_WORKINGTIMES_SESAME",
-                                    "workerTimes": workerTimes.get(_of, []),                
-                                    "correlationId": "OF/" + str(_of).strip()
                                 }
                         
                                 #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
@@ -894,7 +885,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
                         
                                 if glam_id is None or str(old_data_hash) != str(data_hash):
 
-                                    logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+                                    logging.info('      Processing working time ' + str(_of).strip() + ' ...') 
 
                                     # Sending message to queue
                                     myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
@@ -903,7 +894,7 @@ def synchronize_workingTimeEntries(now, dbOrigin, myCursor, activeWorker):
 
                                 i += 1
                                 if i % 1000 == 0:
-                                    logging.info('      ' + str(i) + ' synchronized production orders...')   
+                                    logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')   
 
             meta1 = response1["meta"]
             if str(meta1["lastPage"]) == str(page1):
@@ -976,7 +967,7 @@ def main():
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 1) # Active workers    
     synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, db, myCursor, 0) # Not active workers    
     synchronize_productionOrders(now, db, myCursor, 1) # Active workers    
-    #synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
+    synchronize_workingTimeEntries(now, db, myCursor, 1) # Active workers    
 
     # Send email with execution summary
     send_email("ERPTreballadorsMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)

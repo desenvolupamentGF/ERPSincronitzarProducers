@@ -216,11 +216,7 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
 
         i = 0
         j = 0
-        workerTimes = {}         
         for _of, _tipo in myCursorNono.fetchall():
-
-            if _of not in workerTimes:
-                workerTimes[_of] = []    
 
             # Get Glam production order id.
             glam_productionOrder_id, nothing_to_do = get_value_from_database(myCursor, correlation_id="OF/" + str(_of), url=URL_PRODUCTIONORDERS, endPoint="Production Orders ERP GF", origin="Access-Nono")
@@ -265,45 +261,33 @@ def synchronize_workingTimeEntries(dbNono, myCursorNono, now, dbOrigin, myCursor
                         logging.error(message)
                         continue # if not found, this worker is not used. Next!
 
-                    workerTimes[_of].append(
-                    {    
+                    data={    
+                        "queueType": "PRODUCTIONORDERS_WORKINGTIMES_NONO",
+                        "of": "OF/" + str(_of).strip(),
                         "workerId": str(_glam_id).strip(), 
                         "startDate": _data.strftime("%Y-%m-%dT%H:%M:%S"),
                         "totalTime": str(hours).zfill(2).strip() + ":" + str(minutes).zfill(2).strip() + ":" + str(seconds).zfill(2).strip(),
                         "productionOrderId": productionOrderId,
                         "productionOrderOperationId": productionOrderOperationId,
-                        "correlationId": str(_id).strip() # row number in the access
-                    })
+                        "correlationId": str(_id).strip()
+                    }
 
-                    #total_seconds = _duration
-                    #durada = datetime.timedelta(seconds=total_seconds)
-                    #hours = durada.days * 24 + durada.seconds // 3600
-                    #remaining_seconds = durada.seconds % 3600
-                    #minutes = remaining_seconds // 60
-                    #seconds = remaining_seconds % 60
+                    #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
+                    data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
+                    glam_id, old_data_hash = get_value_from_database(myCursor, str(_id), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
 
-            data={
-                "queueType": "PRODUCTIONORDERS_WORKINGTIMES_NONO",
-                "workerTimes": workerTimes.get(_of, []),                
-                "correlationId": "OF/" + str(_of).strip()
-            }
+                    if glam_id is None or str(old_data_hash) != str(data_hash):
 
-            #data_hash = hash(str(data))    # Perquè el hash era diferent a cada execució encara que s'apliqués al mateix valor 
-            data_hash = hashlib.sha256(str(data).encode('utf-8')).hexdigest()
-            glam_id, old_data_hash = get_value_from_database(myCursor, str(_id), URL_WORKERTIMETICKETS, "Production Orders ERP GF", "Access-Nono")
+                        logging.info('      Processing working time ' + str(_of).strip() + ' ...') 
 
-            if glam_id is None or str(old_data_hash) != str(data_hash):
+                        # Sending message to queue
+                        myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
 
-                logging.info('      Processing production order ' + str(_of).strip() + ' ...') 
+                        j += 1
 
-                # Sending message to queue
-                myRabbitPublisherService.publish_message(json.dumps(data)) # Faig un json.dumps per convertir de diccionari a String
-
-                j += 1
-
-            i += 1
-            if i % 1000 == 0:
-                logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')
+                    i += 1
+                    if i % 1000 == 0:
+                        logging.info('      ' + str(i) + ' synchronized workingTimeEntries...')
                     
         logging.info('      Total synchronized workingTimeEntries: ' + str(i) + '. Total differences sent to rabbit: ' + str(j) + '.')        
 
@@ -368,7 +352,7 @@ def main():
         sys.exit(1)
 
     synchronize_productionOrders(dbNono, myCursorNono, now, db, myCursor)    
-    #synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
+    synchronize_workingTimeEntries(dbNono, myCursorNono, now, db, myCursor)    
 
     # Send email with execution summary
     send_email("ERPProductionOrdersMaintenance", ENVIRONMENT, now, datetime.datetime.now(), executionResult)
