@@ -739,7 +739,7 @@ def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
             else:
                 page1 = page1 + 1       
 
-        for of in ofs:
+        for of in ofs: # Processing list without duplicates
 
             data={
                 "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
