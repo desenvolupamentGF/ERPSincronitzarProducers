@@ -743,7 +743,7 @@ def synchronize_productionOrders(now, dbOrigin, myCursor, activeWorker):
 
             data={
                 "queueType": "PRODUCTIONORDERS_PRODUCTIONORDERS_SESAME",
-                "documentNumber": "OF/" + str(of["of"]).strip(),
+                "documentNumber": "OF/" + str(of["of"]).strip(), # Camp obsolet, s'ha eliminat, però el deixem en el codi per evitar recàlcul de hash
                 "startDate": "2024-01-01T00:00:00", # TO_DO TODO FELIX Valor provisional primer dia any 2024
                 "endDate": "2024-12-31T00:00:00", # TO_DO TODO FELIX Valor provisional darrer dia any 2024
                 "productId": GLAMSUITE_DEFAULT_PRODUCT_ID,
