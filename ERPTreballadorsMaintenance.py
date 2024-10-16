@@ -36,6 +36,7 @@ URL_WORKERTIMETICKETS = '/workerTimeTickets'
 # FELIX-IMPORTANT - API Sesame at https://apidocs.sesametime.com/    (with region "eu2")
 URL_EMPLOYEES_SESAME = "/core/v3/employees"
 URL_ABSENCES_SESAME = "/schedule/v1/absence-day-off"
+URL_VACATIONS_SESAME = "/schedule/v1/vacation-day-off"
 URL_CONTRACTS_SESAME = "/contract/v1/contracts"
 URL_TIMEENTRIES_SESAME = "/project/v1/time-entries"
 URL_API_SESAME = os.environ['URL_API_SESAME']
@@ -551,6 +552,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
                     "preferential": False
                 }                             
 
+                # URL_ABSENCES_SESAME
                 page3 = 1
                 endProcess3 = False
                 while not endProcess3:
@@ -596,6 +598,44 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
                             save_log_database(dbOrigin, myCursor, 'ERPTreballadorsMaintenance', message, "ERROR")
                             logging.error(message)
                             continue # if not found, this worker is not used. Next!
+
+                        if dni not in absences:
+                            absences[dni] = []    
+
+                        absences[dni].append(
+                        {   
+                            "date": str(date).strip(),
+                            "nonWorkingReasonId": str(strNonWorkingReasonId).strip(),
+                            "timetableId": timetableId,
+                            "shiftId": shiftId,
+                            "correlationId": str(dni).strip()
+                        })
+
+                    meta3 = response3["meta"]
+                    if str(meta3["lastPage"]) == str(page3):
+                        endProcess3 = True
+                    else:
+                        page3 = page3 + 1
+
+                # URL_VACATIONS_SESAME
+                page3 = 1
+                endProcess3 = False
+                while not endProcess3:
+
+                    strFrom = datetime.date.today() - datetime.timedelta(90) # Darrers tres mesos
+                    get_req3 = requests.get(URL_API_SESAME + URL_VACATIONS_SESAME + "?page=" + str(page3) + "&employeeIds=" + str(workerId) + "&from=" + str(strFrom), headers=headers,
+                                            verify=False, timeout=CONN_TIMEOUT)
+                    response3 = get_req3.json()
+
+                    for data3 in response3["data"]:
+
+                        date = str(data3["date"]) + "T00:00:00"
+                        nonWorkingReasonId = data3["calendar"]["vacationConfiguration"]["id"]
+                        nonWorkingReasonName = data3["calendar"]["vacationConfiguration"]["name"]
+                        timetableId = None
+                        shiftId = None
+
+                        strNonWorkingReasonId = "4" # Holiday
 
                         if dni not in absences:
                             absences[dni] = []    
