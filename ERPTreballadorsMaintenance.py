@@ -343,6 +343,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
                                              "FROM [GARCIAFAURA].dbo.EmpleadoNomina en " \
                                              "INNER JOIN [GARCIAFAURA].dbo.contrato c ON c.codigoContrato = en.codigoContrato AND c.SubCodigoContrato = en.SubCodigoContrato " \
                                              "AND en.codigoEmpresa = 1 " \
+                                             "AND en.fechaAlta >= getDate() - 10*365 " \
                                              "AND en.dni = '" + str(dni).strip() + "'")
 
                         for _codigoContrato, _subCodigoContrato, _fechaAlta, _fechaBaja, _porcentajeJornada, _codigoDepartamento in myCursorSage.fetchall():
