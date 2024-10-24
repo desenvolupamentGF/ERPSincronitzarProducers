@@ -577,6 +577,8 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
                             strNonWorkingReasonId = "11" # Absenteeism
                         elif nonWorkingReasonId == "22d46e2c-f7d4-48d4-882f-0645e47cc9da": # "Permiso por Maternidad/Paternidad"
                             strNonWorkingReasonId = "8" # MaternityOrPaternity
+                        elif nonWorkingReasonId == "148c8a6e-1a69-482f-abee-11af5521ffb1": # "Lactancia"
+                            strNonWorkingReasonId = "8" # MaternityOrPaternity
                         elif nonWorkingReasonId == "4e3c7c27-92b0-453f-9dcd-1686e7bae5ee": # "Mudanza"
                             strNonWorkingReasonId = "10" # PaidLeave 
                         elif nonWorkingReasonId == "543fd9c7-7014-4bc6-8512-129cbddd3166": # "Baixa per malaltia"
