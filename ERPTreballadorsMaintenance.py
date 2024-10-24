@@ -594,7 +594,7 @@ def synchronize_workers(dbSage, myCursorSage, dbBiostar, myCursorBiostar, now, d
                         elif nonWorkingReasonId == "e5634585-b33b-48ee-a3c7-c1e6703f6d10": # "Vacances a compte any proximo"
                             strNonWorkingReasonId = "4" # Holiday
                         if strNonWorkingReasonId == "":
-                            message = '      ERROR - NotWorkingReason incorrecte. Mirar per què. Reason: ' + str(nonWorkingReasonName) + ' ...'
+                            message = '      ERROR - NotWorkingReason incorrecte. Mirar per què. Reason: ' + str(nonWorkingReasonId) + ' ' + str(nonWorkingReasonName) + ' ...'
                             save_log_database(dbOrigin, myCursor, 'ERPTreballadorsMaintenance', message, "ERROR")
                             logging.error(message)
                             continue # if not found, this worker is not used. Next!
