@@ -40,6 +40,7 @@ GLAMSUITE_DEFAULT_ROUTING_OPERATION_ALUMINI_ID = os.environ['GLAMSUITE_DEFAULT_R
 GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID = os.environ['GLAMSUITE_DEFAULT_ROUTING_OPERATION_FERRO_ID']
 GLAMSUITE_DEFAULT_WAREHOUSE_ALUMINI_ID = os.environ['GLAMSUITE_DEFAULT_WAREHOUSE_ALUMINI_ID']
 GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID = os.environ['GLAMSUITE_DEFAULT_WAREHOUSE_FERRO_ID']
+GLAMSUITE_PROD_ORDER_DOCUMENT_TYPE_ID = os.environ['GLAMSUITE_PROD_ORDER_DOCUMENT_TYPE_ID']
 
 # Rabbit constants for messaging
 RABBIT_URL = os.environ['RABBIT_URL']
@@ -167,6 +168,7 @@ def synchronize_productionOrders(dbNono, myCursorNono, now, dbOrigin, myCursor):
                 "routingOperationId": str(routingOperationId).strip(),
                 "warehouseId": str(warehouseId).strip(),
                 "stateId": "1",
+                "documentTypeId": GLAMSUITE_PROD_ORDER_DOCUMENT_TYPE_ID,
                 "correlationId": "OF/" + str(_of).strip()
             }
 
